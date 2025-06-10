@@ -236,12 +236,12 @@ logger() {
 }
 
 sanityCheck() {
-    # ensure root user is running the script using modern and reliable UID check
-    if [ "$(id -u)" -ne 0 ]; then
-        logger "info" "This script needs to be executed by \"root\"!"
-        echo "ERROR: This script needs to be executed by \"root\"!"
-        exit 1
-    fi
+# ensure root user is running the script using modern and reliable UID check
+# if [ "$(id -u)" -ne 0 ]; then
+#     logger "info" "This script needs to be executed by \"root\"!"
+#     echo "ERROR: This script needs to be executed by \"root\"!"
+#     exit 1
+# fi
 
     # use of global ghettoVCB configuration
     if [[ "${USE_GLOBAL_CONF}" -eq 1 ]] ; then
