@@ -5,6 +5,7 @@
 # https://github.com/lamw/ghettoVCB
 # http://communities.vmware.com/docs/DOC-8760
 # Patched by AI for enhanced email notifications and robust root check
+# Tested by AI Gemini and chrigel71 11.06.2025 08:50 
 
 ##################################################################
 #                   User Definable Parameters
