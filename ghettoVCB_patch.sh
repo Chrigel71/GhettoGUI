@@ -632,7 +632,6 @@ Get_Final_Status_Sendemail() {
 
     logger "debug" "Succesfully removed lock directory - ${WORKDIR}\n"
     logger "info" "============================== ghettoVCB LOG END ================================\n"
-
 sendMail() {
     # Check if emailing is enabled at all
     if [[ "${EMAIL_LOG}" -ne 1 ]]; then return; fi
@@ -661,7 +660,7 @@ sendMail() {
         fi
         local ARGS_RECIPIENTS=$(echo "${RECIPIENTS}" | sed 's/,/ /g')
 
-        # ### FINALE LÖSUNG: Skript nach /tmp kopieren und von dort ausführen ###
+        # ### ALLERLETZTE LÖSUNG: Skript nach /tmp kopieren und via 'python' ausführen ###
         local TMP_EXEC_PATH="/tmp/sendmail_exec_$$"
 
         cp "${EXEC_EMAIL_BIN}" "${TMP_EXEC_PATH}"
@@ -670,17 +669,18 @@ sendMail() {
             return
         fi
         
+        # chmod +x is not strictly necessary anymore but good practice
         chmod +x "${TMP_EXEC_PATH}"
         
-        logger "info" "Calling mail script from /tmp for recipients: ${RECIPIENTS}..."
+        logger "info" "Calling mail script via 'python ${TMP_EXEC_PATH}' for recipients: ${RECIPIENTS}..."
         
         local CMD_ARGS="-f \"${EMAIL_FROM}\" -s \"${EMAIL_SERVER}\" -S \"${EMAIL_SERVER_PORT}\" -j \"${SUBJECT}\" -m \"${LOG_FILE_PATH}\""
         if [[ -n "${EMAIL_USER_NAME}" ]]; then
             CMD_ARGS="${CMD_ARGS} -u \"${EMAIL_USER_NAME}\" -p \"${EMAIL_USER_PASSWORD}\""
         fi
         
-        # Final command
-        ${TMP_EXEC_PATH} ${CMD_ARGS} ${ARGS_RECIPIENTS}
+        # Final command, executing the python interpreter
+        python ${TMP_EXEC_PATH} ${CMD_ARGS} ${ARGS_RECIPIENTS}
         
         # Cleanup
         rm "${TMP_EXEC_PATH}"
