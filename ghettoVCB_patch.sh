@@ -1524,13 +1524,13 @@ sendMail() {
         return
     fi
 
-    # ### ANPASSUNG: Finale Logik mit /tmp Workaround und korrektem Aufruf ###
+    # Check for custom mailer
     local EXEC_EMAIL_BIN=$(eval echo ${EMAIL_BIN})
-    # Wir prüfen nur noch ob die Datei existiert (-f), nicht mehr ob sie ausführbar ist (-x)
+    # We check if the file exists (-f), not if it's executable (-x), because of the noexec flag
     if [[ -n "${EXEC_EMAIL_BIN}" ]] && [[ -f "${EXEC_EMAIL_BIN}" ]]; then
         logger "info" "Sending email summary via custom EMAIL_BIN: ${EXEC_EMAIL_BIN}"
 
-        # Betreff aus der Konfigurationsdatei verwenden
+        # Use a fallback subject if EMAIL_SUBJECT is not set in conf
         if [[ -z "${EMAIL_SUBJECT}" ]]; then
             EMAIL_SUBJECT="ghettoVCB Report for $(hostname -s)"
         fi
@@ -1538,17 +1538,31 @@ sendMail() {
         
         local LOG_FILE_PATH="${EMAIL_LOG_OUTPUT}"
 
-        # Empfängerliste erstellen
+        # Build recipient list
         local RECIPIENTS=${EMAIL_TO}
         if [[ "${EMAIL_ERRORS_TO}" != "" ]] && [[ "${LOG_STATUS}" != "OK" ]]; then
             if [[ "${RECIPIENTS}" == "" ]]; then RECIPIENTS="${EMAIL_ERRORS_TO}"; else RECIPIENTS="${RECIPIENTS},${EMAIL_ERRORS_TO}"; fi
         fi
         if [[ -z "${RECIPIENTS}" ]]; then logger "info" "No email recipients defined."; return; fi
 
-        local ARGS_RECIPIENTS=$(echo "${RECIPIENTS}" | sed 's/,/ /g')
+        # ### FINALE LÖSUNG: Argumente sicher in einem Array zusammenbauen ###
+        local ARGS=()
+        ARGS+=(-f "${EMAIL_FROM}")
+        ARGS+=(-s "${EMAIL_SERVER}")
+        ARGS+=(-S "${EMAIL_SERVER_PORT}")
+        ARGS+=(-j "${SUBJECT}")
+        ARGS+=(-m "${LOG_FILE_PATH}")
+        if [[ -n "${EMAIL_USER_NAME}" ]]; then
+            ARGS+=(-u "${EMAIL_USER_NAME}")
+            ARGS+=(-p "${EMAIL_USER_PASSWORD}")
+        fi
+        
+        # Add recipients to the end of the argument list
+        local RECIPIENT_ARRAY=(${RECIPIENTS//,/ })
+        ARGS+=(${RECIPIENT_ARRAY[@]})
+
         local TMP_EXEC_PATH="/tmp/sendmail_exec_$$"
 
-        # Skript nach /tmp kopieren
         cp "${EXEC_EMAIL_BIN}" "${TMP_EXEC_PATH}"
         if [[ $? -ne 0 ]]; then logger "info" "ERROR: Failed to copy mail script to /tmp."; return; fi
         
@@ -1556,16 +1570,10 @@ sendMail() {
         
         logger "info" "Calling mail script via 'python ${TMP_EXEC_PATH}' for recipients: ${RECIPIENTS}..."
         
-        # Argumente für den Aufruf zusammenbauen
-        local CMD_ARGS="-f \"${EMAIL_FROM}\" -s \"${EMAIL_SERVER}\" -S \"${EMAIL_SERVER_PORT}\" -j \"${SUBJECT}\" -m \"${LOG_FILE_PATH}\""
-        if [[ -n "${EMAIL_USER_NAME}" ]]; then
-            CMD_ARGS="${CMD_ARGS} -u \"${EMAIL_USER_NAME}\" -p \"${EMAIL_USER_PASSWORD}\""
-        fi
+        # Final, robust command execution
+        python "${TMP_EXEC_PATH}" "${ARGS[@]}"
         
-        # Finaler, korrekter Aufruf
-        python ${TMP_EXEC_PATH} ${CMD_ARGS} ${ARGS_RECIPIENTS}
-        
-        # Temporäre Datei aufräumen
+        # Cleanup
         rm "${TMP_EXEC_PATH}"
         
     else
