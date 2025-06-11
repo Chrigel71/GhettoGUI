@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# GhettoVCB-GUI Custom Sendmail Engine v4.0 "The Flatliner"
+# GhettoVCB-GUI Custom Sendmail Engine v5.0 "The Hybrid"
 
 import sys
 import argparse
@@ -10,22 +10,15 @@ from email.mime.multipart import MIMEMultipart
 from email.header import Header
 from email.utils import formatdate
 
-# --- HELPER FUNCTIONS ---
-
 def html_escape(text):
-    """A simple function to escape basic HTML special characters."""
     if not isinstance(text, basestring):
         text = str(text)
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 def create_summary(log_content):
     summary = {
-        "status": "Unbekannt",
-        "duration": "N/A",
-        "vms_processed": [],
-        "errors": [],
-        "warnings": [],
-        "directory_listing": []
+        "status": "Unbekannt", "duration": "N/A", "vms_processed": [],
+        "errors": [], "warnings": [], "directory_listing": []
     }
     in_listing_section = False
     for line in log_content.splitlines():
@@ -51,34 +44,25 @@ def create_summary(log_content):
         if in_listing_section and clean_line:
             summary["directory_listing"].append(line)
     body_parts = []
-    body_parts.append("<html><head><style>body { font-family: Arial, sans-serif; font-size: 14px; } pre { font-family: monospace; background-color: #f0f0f0; padding: 10px; border: 1px solid #ccc; border-radius: 5px; white-space: pre-wrap; word-wrap: break-word;} .error { color: red; font-weight: bold; } .warn { color: orange; font-weight: bold; }</style></head><body>")
-    body_parts.append("<h2>Backup-Zusammenfassung</h2><hr>")
-    body_parts.append("<p><b>Status:</b> %s</p><p><b>Dauer:</b> %s</p>" % (summary["status"], summary["duration"]))
+    body_parts.append("<html><head><style>body{font-family:Arial,sans-serif;font-size:14px}pre{font-family:monospace;background-color:#f0f0f0;padding:10px;border:1px solid #ccc;border-radius:5px;white-space:pre-wrap;word-wrap:break-word}.error{color:red;font-weight:bold}.warn{color:orange;font-weight:bold}</style></head><body>")
+    body_parts.append("<h2>Backup-Zusammenfassung</h2><hr><p><b>Status:</b> %s</p><p><b>Dauer:</b> %s</p>" % (summary["status"], summary["duration"]))
     body_parts.append("<h3>Verarbeitete VMs (%d)</h3>" % len(summary["vms_processed"]))
     if summary["vms_processed"]:
-        body_parts.append("<ul>")
-        body_parts.extend(["<li>%s</li>" % vm for vm in summary["vms_processed"]])
-        body_parts.append("</ul>")
+        body_parts.append("<ul>%s</ul>" % "".join(["<li>%s</li>" % vm for vm in summary["vms_processed"]]))
     else:
         body_parts.append("<p>Keine.</p>")
     body_parts.append("<h3>Warnungen (%d)</h3>" % len(summary["warnings"]))
     if summary["warnings"]:
-        body_parts.append("<ul>")
-        body_parts.extend(["<li class='warn'>%s</li>" % html_escape(w) for w in summary["warnings"]])
-        body_parts.append("</ul>")
+        body_parts.append("<ul>%s</ul>" % "".join(["<li class='warn'>%s</li>" % html_escape(w) for w in summary["warnings"]]))
     else:
         body_parts.append("<p>Keine.</p>")
     body_parts.append("<h3>Fehler (%d)</h3>" % len(summary["errors"]))
     if summary["errors"]:
-        body_parts.append("<ul>")
-        body_parts.extend(["<li class='error'>%s</li>" % html_escape(e) for e in summary["errors"]])
-        body_parts.append("</ul>")
+        body_parts.append("<ul>%s</ul>" % "".join(["<li class='error'>%s</li>" % html_escape(e) for e in summary["errors"]]))
     else:
         body_parts.append("<p>Keine.</p>")
     if summary["directory_listing"]:
-        body_parts.append("<hr><h3>Inhalt des Backup-Verzeichnisses</h3><pre>")
-        body_parts.extend([html_escape(line) for line in summary["directory_listing"]])
-        body_parts.append("</pre>")
+        body_parts.append("<hr><h3>Inhalt des Backup-Verzeichnisses</h3><pre>%s</pre>" % "\n".join([html_escape(line) for line in summary["directory_listing"]]))
     body_parts.append("</body></html>")
     return "\n".join(body_parts)
 
@@ -118,10 +102,7 @@ def send_email(subject, body, to_addr, from_addr, smtp_server, smtp_port_str, us
             except Exception:
                 pass
 
-# #################################################
-# Main execution logic - FLATTENED STRUCTURE
-# #################################################
-
+# --- Main execution logic ---
 parser = argparse.ArgumentParser(description='GhettoVCB Custom Sendmail Script.')
 parser.add_argument('-f', dest='sender', required=True)
 parser.add_argument('-s', dest='server', required=True)
@@ -129,11 +110,19 @@ parser.add_argument('-S', dest='port', required=True)
 parser.add_argument('-u', dest='username')
 parser.add_argument('-p', dest='password')
 parser.add_argument('-j', dest='subject', required=True)
+parser.add_argument('-m', dest='message_file', required=True) # Message file is now required
 parser.add_argument('recipients', nargs='+')
 
 args = parser.parse_args()
 recipients_str = ",".join(args.recipients)
-log_content = sys.stdin.read()
-email_body = create_summary(log_content)
 
+log_content = ""
+try:
+    with open(args.message_file, 'r') as f:
+        log_content = f.read()
+except Exception as e:
+    sys.stderr.write("ERROR: Failed to read message file %s: %s\n" % (args.message_file, str(e)))
+    sys.exit(1)
+
+email_body = create_summary(log_content)
 send_email(args.subject, email_body, recipients_str, args.sender, args.server, args.port, args.username, args.password)
