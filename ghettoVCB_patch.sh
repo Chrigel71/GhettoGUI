@@ -1545,22 +1545,7 @@ sendMail() {
         fi
         if [[ -z "${RECIPIENTS}" ]]; then logger "info" "No email recipients defined."; return; fi
 
-        # ### FINALE LÖSUNG: Argumente sicher in einem Array zusammenbauen ###
-        local ARGS=()
-        ARGS+=(-f "${EMAIL_FROM}")
-        ARGS+=(-s "${EMAIL_SERVER}")
-        ARGS+=(-S "${EMAIL_SERVER_PORT}")
-        ARGS+=(-j "${SUBJECT}")
-        ARGS+=(-m "${LOG_FILE_PATH}")
-        if [[ -n "${EMAIL_USER_NAME}" ]]; then
-            ARGS+=(-u "${EMAIL_USER_NAME}")
-            ARGS+=(-p "${EMAIL_USER_PASSWORD}")
-        fi
-        
-        # Add recipients to the end of the argument list
-        local RECIPIENT_ARRAY=(${RECIPIENTS//,/ })
-        ARGS+=(${RECIPIENT_ARRAY[@]})
-
+        # ### FINALE LÖSUNG (ash-kompatibel): Argumente direkt übergeben ###
         local TMP_EXEC_PATH="/tmp/sendmail_exec_$$"
 
         cp "${EXEC_EMAIL_BIN}" "${TMP_EXEC_PATH}"
@@ -1570,8 +1555,18 @@ sendMail() {
         
         logger "info" "Calling mail script via 'python ${TMP_EXEC_PATH}' for recipients: ${RECIPIENTS}..."
         
-        # Final, robust command execution
-        python "${TMP_EXEC_PATH}" "${ARGS[@]}"
+        # Führe den Befehl direkt mit den Variablen aus. Die Shell kümmert sich um das korrekte Quoting.
+        # Wir übergeben -u und -p immer; das Python-Skript kann mit leeren Werten umgehen.
+        # Wir wandeln die kommagetrennten Empfänger in eine leerzeichengetrennte Liste für die Kommandozeile um.
+        python "${TMP_EXEC_PATH}" \
+            -f "${EMAIL_FROM}" \
+            -s "${EMAIL_SERVER}" \
+            -S "${EMAIL_SERVER_PORT}" \
+            -j "${SUBJECT}" \
+            -m "${LOG_FILE_PATH}" \
+            -u "${EMAIL_USER_NAME}" \
+            -p "${EMAIL_USER_PASSWORD}" \
+            $(echo "${RECIPIENTS}" | sed 's/,/ /g')
         
         # Cleanup
         rm "${TMP_EXEC_PATH}"
