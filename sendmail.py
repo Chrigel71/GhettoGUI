@@ -136,15 +136,4 @@ except Exception as e:
     sys.exit(1)
 
 email_body = create_summary(log_content)
-
-# CORRECTED calling structure
-send_email(
-    subject=args.subject,
-    body=email_body,
-    to_addr=recipients_str,
-    from_addr=args.sender,
-    smtp_server=args.server,
-    smtp_port_str=args.port,
-    user=args.username,
-    password=args.password
-)
+send_email(args.subject, email_body, recipients_str, args.sender, args.server, args.port, args.username, args.password)
