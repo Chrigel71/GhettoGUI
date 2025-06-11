@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# GhettoVCB-GUI Custom Sendmail Engine v5.4 (Universally Compatible)
+# GhettoVCB-GUI Custom Sendmail Engine v5.5 (The Polisher)
 
 import sys
 import argparse
@@ -10,14 +10,10 @@ from email.mime.multipart import MIMEMultipart
 from email.header import Header
 from email.utils import formatdate
 
-# --- HELPER FUNCTIONS ---
-
 # Universelle Prüfung für String-Typen, die in Python 2 und 3 funktioniert
 try:
-    # In Python 2 existiert 'basestring' als Oberklasse für str und unicode
     _string_types = basestring
 except NameError:
-    # In Python 3 gibt es nur noch 'str'
     _string_types = str
 
 def html_escape(text):
@@ -34,10 +30,12 @@ def create_summary(log_content):
     in_listing_section = False
     for line in log_content.splitlines():
         clean_line = line.strip()
+        
+        # ### KORRIGIERTE LOGIK ZUM AUFTEILEN DER ZEILEN ###
         if "###### Final status:" in clean_line:
-            summary["status"] = clean_line.split(":", 1)[1].replace("#", "").strip()
+            summary["status"] = clean_line.split("###### Final status:", 1)[1].replace("#", "").strip()
         elif "Backup Duration:" in clean_line:
-            summary["duration"] = clean_line.split(":", 1)[1].strip()
+            summary["duration"] = clean_line.split("Backup Duration:", 1)[1].strip()
         elif "info: Initiate backup for" in clean_line:
             vm_name = clean_line.split("Initiate backup for", 1)[1].strip()
             if vm_name not in summary["vms_processed"]:
@@ -54,6 +52,7 @@ def create_summary(log_content):
             continue
         if in_listing_section and clean_line:
             summary["directory_listing"].append(line)
+            
     body_parts = []
     body_parts.append("<html><head><style>body{font-family:Arial,sans-serif;font-size:14px}pre{font-family:monospace;background-color:#f0f0f0;padding:10px;border:1px solid #ccc;border-radius:5px;white-space:pre-wrap;word-wrap:break-word}.error{color:red;font-weight:bold}.warn{color:orange;font-weight:bold}</style></head><body>")
     body_parts.append("<h2>Backup-Zusammenfassung</h2><hr><p><b>Status:</b> %s</p><p><b>Dauer:</b> %s</p>" % (summary["status"], summary["duration"]))
