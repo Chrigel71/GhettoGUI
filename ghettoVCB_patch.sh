@@ -633,7 +633,54 @@ Get_Final_Status_Sendemail() {
     logger "debug" "Succesfully removed lock directory - ${WORKDIR}\n"
     logger "info" "============================== ghettoVCB LOG END ================================\n"
 
-    sendMail
+sendMail() {
+    # Check if emailing is enabled at all
+    if [[ "${EMAIL_LOG}" -ne 1 ]]; then return; fi
+
+    # Check for custom mailer
+    local EXEC_EMAIL_BIN=$(eval echo ${EMAIL_BIN})
+    if [[ -n "${EXEC_EMAIL_BIN}" ]] && [[ -x "${EXEC_EMAIL_BIN}" ]]; then
+        logger "info" "Sending email summary via custom EMAIL_BIN: ${EXEC_EMAIL_BIN}"
+
+        # Use a fallback subject if EMAIL_SUBJECT is not set in conf
+        if [[ -z "${EMAIL_SUBJECT}" ]]; then
+            EMAIL_SUBJECT="ghettoVCB Report for $(hostname -s)"
+        fi
+        local SUBJECT="${EMAIL_SUBJECT} - ${FINAL_STATUS}"
+        
+        # ### MODIFICATION: Use -m parameter instead of pipe ###
+        # The EMAIL_LOG_OUTPUT variable already holds the path to the complete log
+        local LOG_FILE_PATH="${EMAIL_LOG_OUTPUT}"
+
+        # Build recipient list
+        local RECIPIENTS=${EMAIL_TO}
+        if [[ "${EMAIL_ERRORS_TO}" != "" ]] && [[ "${LOG_STATUS}" != "OK" ]]; then
+            RECIPIENTS="${RECIPIENTS},${EMAIL_ERRORS_TO}"
+        fi
+        if [[ -z "${RECIPIENTS}" ]]; then
+            logger "info" "No email recipients defined, skipping email notification."
+            return
+        fi
+        local ARGS_RECIPIENTS=$(echo "${RECIPIENTS}" | sed 's/,/ /g')
+
+        logger "info" "Calling mail script for recipients: ${RECIPIENTS}..."
+        
+        local CMD_ARGS="-f \"${EMAIL_FROM}\" -s \"${EMAIL_SERVER}\" -S \"${EMAIL_SERVER_PORT}\" -j \"${SUBJECT}\" -m \"${LOG_FILE_PATH}\""
+        if [[ -n "${EMAIL_USER_NAME}" ]]; then
+            CMD_ARGS="${CMD_ARGS} -u \"${EMAIL_USER_NAME}\" -p \"${EMAIL_USER_PASSWORD}\""
+        fi
+        
+        # Final command
+        ${EXEC_EMAIL_BIN} ${CMD_ARGS} ${ARGS_RECIPIENTS} >/dev/null 2>&1
+        
+        if [[ $? -ne 0 ]]; then
+            logger "info" "ERROR: Custom EMAIL_BIN failed to send email."
+        else
+            logger "info" "Successfully initiated email delivery via custom script."
+        fi
+    else
+        logger "info" "EMAIL_BIN not defined or not executable. Cannot send summary email."
+    fi
 }
 
 indexedRotate() {
