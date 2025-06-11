@@ -4,8 +4,8 @@
 # http://www.williamlam.com/
 # https://github.com/lamw/ghettoVCB
 # http://communities.vmware.com/docs/DOC-8760
-# Patched by AI for enhanced email notifications and robust root check
-# Tested by AI Gemini and chrigel71 11.06.2025 08:50 
+# Patched by AI for GhettoGUI v6.0 - Enhanced email notifications, robust root check, directory listing
+# Tested by AI Gemini and chrigel71
 
 ##################################################################
 #                   User Definable Parameters
@@ -617,6 +617,18 @@ NfsIoHack() {
 # Converted the section of code below to a function to be able to call it when a failed backup occurs.
 Get_Final_Status_Sendemail() {
     getFinalStatus
+
+    # ### MODIFICATION: Add directory listing to the email log ###
+    if [[ "${EMAIL_LOG}" -eq 1 ]] ; then
+        # The empty echo adds a newline for spacing in the log/email
+        echo -ne "\r\n" >> "${EMAIL_LOG_OUTPUT}"
+        # Add the header for the directory listing section
+        echo -ne "--- Inhalt von ${VM_BACKUP_VOLUME} ---\r\n" >> "${EMAIL_LOG_OUTPUT}"
+        # Append the directory listing, converting LF to CRLF for email
+        ls -lR "${VM_BACKUP_VOLUME}" | sed 's/$/\r/' >> "${EMAIL_LOG_OUTPUT}"
+        # Add the footer
+        echo -ne "--- Ende der Liste ---\r\n" >> "${EMAIL_LOG_OUTPUT}"
+    fi
 
     logger "debug" "Succesfully removed lock directory - ${WORKDIR}\n"
     logger "info" "============================== ghettoVCB LOG END ================================\n"
@@ -1439,40 +1451,40 @@ ghettoVCB() {
 
 getFinalStatus() {
     if [[ "${LOG_TYPE}" == "dryrun" ]]; then
-        FINAL_STATUS="###### Final status: OK, only a dryrun. ######"
+        FINAL_STATUS="OK, only a dryrun."
         LOG_STATUS="OK"
         EXIT=0
     elif [[ $VM_OK == 1 ]] && [[ $VM_FAILED == 0 ]] && [[ $VMDK_FAILED == 0 ]]; then
-        FINAL_STATUS="###### Final status: All VMs backed up OK! ######"
+        FINAL_STATUS="All VMs backed up OK!"
         LOG_STATUS="OK"
         EXIT=0
     elif [[ $VM_OK == 1 ]] && [[ $VM_FAILED == 0 ]] && [[ $VMDK_FAILED == 1 ]]; then
-        FINAL_STATUS="###### Final status: WARNING: All VMs backed up, but some disk(s) failed! ######"
+        FINAL_STATUS="WARNING: All VMs backed up, but some disk(s) failed!"
         LOG_STATUS="WARNING"
         EXIT=3
     elif [[ $VM_OK == 1 ]] && [[ $VM_FAILED == 1 ]] && [[ $VMDK_FAILED == 0 ]]; then
-        FINAL_STATUS="###### Final status: ERROR: Only some of the VMs backed up! ######"
+        FINAL_STATUS="ERROR: Only some of the VMs backed up!"
         LOG_STATUS="ERROR"
         EXIT=4
     elif [[ $VM_OK == 1 ]] && [[ $VM_FAILED == 1 ]] && [[ $VMDK_FAILED == 1 ]]; then
-        FINAL_STATUS="###### Final status: ERROR: Only some of the VMs backed up, and some disk(s) failed! ######"
+        FINAL_STATUS="ERROR: Only some of the VMs backed up, and some disk(s) failed!"
         LOG_STATUS="ERROR"
         EXIT=5
     elif [[ $VM_OK == 0 ]] && [[ $VM_FAILED == 1 ]]; then # $VMDK_FAILED doesn't matter in this case
-        FINAL_STATUS="###### Final status: ERROR: All VMs failed! ######"
+        FINAL_STATUS="ERROR: All VMs failed!"
         LOG_STATUS="ERROR"
         EXIT=6
     elif [[ $VM_OK == 0 ]] && [[ $VM_FAILED == 0 ]] && [[ $VMDK_FAILED == 0 ]]; then
-        FINAL_STATUS="###### Final status: ERROR: No VMs backed up! ######"
+        FINAL_STATUS="ERROR: No VMs backed up!"
         LOG_STATUS="ERROR"
         EXIT=7
     elif [[ $VM_OK == 0 ]] && [[ $VM_FAILED == 0 ]] && [[ $VMDK_FAILED == 1 ]]; then
-        FINAL_STATUS="###### Final status: ERROR: All VMs experienced at least a partial failure! ######"
+        FINAL_STATUS="ERROR: All VMs experienced at least a partial failure!"
         LOG_STATUS="ERROR"
         EXIT=8
     fi
     logger "debug" "VM_OK:${VM_OK}, VM_FAILED:${VM_FAILED}, VMDK_FAILED:${VMDK_FAILED}"
-    logger "info" "$FINAL_STATUS\n"
+    logger "info" "###### Final status: ${FINAL_STATUS} ######"
 }
 
 buildHeaders() {
@@ -1545,35 +1557,34 @@ sendMail() {
     fi
 
     # Check for our custom EMAIL_BIN first (PREFERRED METHOD)
-    # The eval is needed to strip the single quotes from the variable path
     local EXEC_EMAIL_BIN=$(eval echo ${EMAIL_BIN})
     if [[ -n "${EXEC_EMAIL_BIN}" ]] && [[ -x "${EXEC_EMAIL_BIN}" ]]; then
         logger "info" "Sending email via custom EMAIL_BIN: ${EXEC_EMAIL_BIN}"
 
-        local SUBJECT="ghettoVCB - $(hostname -s) ${JOBNAME} - ${FINAL_STATUS}"
+        # ### MODIFICATION: Construct subject from config and status ###
+        if [[ -z "${EMAIL_SUBJECT}" ]]; then
+            EMAIL_SUBJECT="ghettoVCB Report for $(hostname -s)"
+        fi
+        local SUBJECT="${EMAIL_SUBJECT} - ${FINAL_STATUS}"
+        
         local BODY=$(cat "${EMAIL_LOG_OUTPUT}")
         
-        # Loop through all recipients
-        ORIG_IFS=${IFS}
-        IFS=','
-        for recipient in ${RECIPIENTS}; do
-            local clean_recipient=$(echo ${recipient} | sed -e 's/^[[:blank:]]*//;s/[[:blank:]]*$//')
-            logger "info" "Sending custom email to ${clean_recipient}..."
-            
-            # Pipe the body to our python script with correctly separated arguments
-            if [[ -n "${EMAIL_USER_NAME}" ]]; then
-                echo "${BODY}" | ${EXEC_EMAIL_BIN} -f "${EMAIL_FROM}" -s "${EMAIL_SERVER}" -S "${EMAIL_SERVER_PORT}" -u "${EMAIL_USER_NAME}" -p "${EMAIL_USER_PASSWORD}" -j "${SUBJECT}" "${clean_recipient}" >/dev/null 2>&1
-            else
-                echo "${BODY}" | ${EXEC_EMAIL_BIN} -f "${EMAIL_FROM}" -s "${EMAIL_SERVER}" -S "${EMAIL_SERVER_PORT}" -j "${SUBJECT}" "${clean_recipient}" >/dev/null 2>&1
-            fi
-            
-            if [[ $? -ne 0 ]]; then
-                logger "info" "ERROR: Custom EMAIL_BIN failed to send email to ${clean_recipient}"
-            else
-                logger "info" "Successfully initiated email delivery to ${clean_recipient} via custom script."
-            fi
-        done
-        IFS=${ORIG_IFS}
+        local ARGS_RECIPIENTS=$(echo "${RECIPIENTS}" | sed 's/,/ /g')
+        
+        logger "info" "Sending custom email to ${RECIPIENTS}..."
+        
+        # Pipe the body to our python script with correctly separated arguments
+        if [[ -n "${EMAIL_USER_NAME}" ]]; then
+            echo "${BODY}" | ${EXEC_EMAIL_BIN} -f "${EMAIL_FROM}" -s "${EMAIL_SERVER}" -S "${EMAIL_SERVER_PORT}" -u "${EMAIL_USER_NAME}" -p "${EMAIL_USER_PASSWORD}" -j "${SUBJECT}" ${ARGS_RECIPIENTS} >/dev/null 2>&1
+        else
+            echo "${BODY}" | ${EXEC_EMAIL_BIN} -f "${EMAIL_FROM}" -s "${EMAIL_SERVER}" -S "${EMAIL_SERVER_PORT}" -j "${SUBJECT}" ${ARGS_RECIPIENTS} >/dev/null 2>&1
+        fi
+        
+        if [[ $? -ne 0 ]]; then
+            logger "info" "ERROR: Custom EMAIL_BIN failed to send email."
+        else
+            logger "info" "Successfully initiated email delivery to ${RECIPIENTS} via custom script."
+        fi
     else
         # Fallback to original netcat method if EMAIL_BIN is not defined/executable
         logger "info" "EMAIL_BIN not defined or not executable, falling back to original nc method."
