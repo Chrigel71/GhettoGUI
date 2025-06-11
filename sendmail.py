@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# GhettoVCB-GUI Custom Sendmail Engine v5.1 (stable structure)
+# GhettoVCB-GUI Custom Sendmail Engine v5.2 (Corrected)
 
 import sys
 import argparse
@@ -129,7 +129,7 @@ except Exception as e:
 
 email_body = create_summary(log_content)
 
-# Replicating the exact calling structure of the previously working script
+# CORRECTED calling structure
 send_email(
     subject=args.subject,
     body=email_body,
@@ -138,5 +138,5 @@ send_email(
     smtp_server=args.server,
     smtp_port_str=args.port,
     user=args.username,
-    password=args.password,
+    password=args.password
 )
