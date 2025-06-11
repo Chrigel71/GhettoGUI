@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-# GhettoVCB-GUI Custom Sendmail Engine v3.3 "The Final One"
+# -*- coding: utf-8 -*-
+# GhettoVCB-GUI Custom Sendmail Engine v4.0 "The Flatliner"
 
 import sys
 import argparse
@@ -8,6 +9,8 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.header import Header
 from email.utils import formatdate
+
+# --- HELPER FUNCTIONS ---
 
 def html_escape(text):
     """A simple function to escape basic HTML special characters."""
@@ -24,11 +27,9 @@ def create_summary(log_content):
         "warnings": [],
         "directory_listing": []
     }
-
     in_listing_section = False
     for line in log_content.splitlines():
         clean_line = line.strip()
-
         if "###### Final status:" in clean_line:
             summary["status"] = clean_line.split(":", 1)[1].replace("#", "").strip()
         elif "Backup Duration:" in clean_line:
@@ -47,18 +48,12 @@ def create_summary(log_content):
         elif "--- Ende der Liste ---" in clean_line:
             in_listing_section = False
             continue
-
-        if in_listing_section:
-            if clean_line:
-                summary["directory_listing"].append(line)
-
+        if in_listing_section and clean_line:
+            summary["directory_listing"].append(line)
     body_parts = []
     body_parts.append("<html><head><style>body { font-family: Arial, sans-serif; font-size: 14px; } pre { font-family: monospace; background-color: #f0f0f0; padding: 10px; border: 1px solid #ccc; border-radius: 5px; white-space: pre-wrap; word-wrap: break-word;} .error { color: red; font-weight: bold; } .warn { color: orange; font-weight: bold; }</style></head><body>")
-    body_parts.append("<h2>Backup-Zusammenfassung</h2>")
-    body_parts.append("<hr>")
-    body_parts.append("<p><b>Status:</b> %s</p>" % summary["status"])
-    body_parts.append("<p><b>Dauer:</b> %s</p>" % summary["duration"])
-    
+    body_parts.append("<h2>Backup-Zusammenfassung</h2><hr>")
+    body_parts.append("<p><b>Status:</b> %s</p><p><b>Dauer:</b> %s</p>" % (summary["status"], summary["duration"]))
     body_parts.append("<h3>Verarbeitete VMs (%d)</h3>" % len(summary["vms_processed"]))
     if summary["vms_processed"]:
         body_parts.append("<ul>")
@@ -66,7 +61,6 @@ def create_summary(log_content):
         body_parts.append("</ul>")
     else:
         body_parts.append("<p>Keine.</p>")
-
     body_parts.append("<h3>Warnungen (%d)</h3>" % len(summary["warnings"]))
     if summary["warnings"]:
         body_parts.append("<ul>")
@@ -74,7 +68,6 @@ def create_summary(log_content):
         body_parts.append("</ul>")
     else:
         body_parts.append("<p>Keine.</p>")
-
     body_parts.append("<h3>Fehler (%d)</h3>" % len(summary["errors"]))
     if summary["errors"]:
         body_parts.append("<ul>")
@@ -82,14 +75,10 @@ def create_summary(log_content):
         body_parts.append("</ul>")
     else:
         body_parts.append("<p>Keine.</p>")
-
     if summary["directory_listing"]:
-        body_parts.append("<hr>")
-        body_parts.append("<h3>Inhalt des Backup-Verzeichnisses</h3>")
-        body_parts.append("<pre>")
+        body_parts.append("<hr><h3>Inhalt des Backup-Verzeichnisses</h3><pre>")
         body_parts.extend([html_escape(line) for line in summary["directory_listing"]])
         body_parts.append("</pre>")
-    
     body_parts.append("</body></html>")
     return "\n".join(body_parts)
 
@@ -99,20 +88,16 @@ def send_email(subject, body, to_addr, from_addr, smtp_server, smtp_port_str, us
     msg['To'] = to_addr
     msg['Subject'] = Header(subject, 'utf-8')
     msg['Date'] = formatdate(localtime=True)
-    
     try:
         smtp_port = int(smtp_port_str)
     except (ValueError, TypeError):
         sys.stderr.write("ERROR: Invalid port: %s\n" % smtp_port_str)
         return
-
     try:
         body_decoded = body.decode('utf-8', 'replace') if isinstance(body, bytes) else body
-    except NameError: # For Python 2 compatibility
+    except NameError:
         body_decoded = body
-
     msg.attach(MIMEText(body_decoded, 'html', 'utf-8'))
-
     server = None
     try:
         server = smtplib.SMTP(smtp_server, smtp_port, timeout=30)
@@ -133,20 +118,22 @@ def send_email(subject, body, to_addr, from_addr, smtp_server, smtp_port_str, us
             except Exception:
                 pass
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='GhettoVCB Custom Sendmail Script.')
-    parser.add_argument('-f', dest='sender', required=True)
-    parser.add_argument('-s', dest='server', required=True)
-    parser.add_argument('-S', dest='port', required=True)
-    parser.add_argument('-u', dest='username')
-    parser.add_argument('-p', dest='password')
-    parser.add_argument('-j', dest='subject', required=True)
-    parser.add_argument('recipients', nargs='+')
-    args = parser.parse_args()
-    
-    recipients_str = ",".join(args.recipients)
-    log_content = sys.stdin.read()
-    email_body = create_summary(log_content)
-    
-    # ### FINAL FIX: Call send_email on a single line to prevent any indentation errors ###
-    send_email(args.subject, email_body, recipients_str, args.sender, args.server, args.port, args.username, args.password)
+# #################################################
+# Main execution logic - FLATTENED STRUCTURE
+# #################################################
+
+parser = argparse.ArgumentParser(description='GhettoVCB Custom Sendmail Script.')
+parser.add_argument('-f', dest='sender', required=True)
+parser.add_argument('-s', dest='server', required=True)
+parser.add_argument('-S', dest='port', required=True)
+parser.add_argument('-u', dest='username')
+parser.add_argument('-p', dest='password')
+parser.add_argument('-j', dest='subject', required=True)
+parser.add_argument('recipients', nargs='+')
+
+args = parser.parse_args()
+recipients_str = ",".join(args.recipients)
+log_content = sys.stdin.read()
+email_body = create_summary(log_content)
+
+send_email(args.subject, email_body, recipients_str, args.sender, args.server, args.port, args.username, args.password)
