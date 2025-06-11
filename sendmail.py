@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# GhettoVCB-GUI Custom Sendmail Engine v3.1 "The Hardened Formatter"
+# GhettoVCB-GUI Custom Sendmail Engine v3.3 "The Final One"
 
 import sys
 import argparse
@@ -11,7 +11,6 @@ from email.utils import formatdate
 
 def html_escape(text):
     """A simple function to escape basic HTML special characters."""
-    # This check handles non-string types that might appear in logs
     if not isinstance(text, basestring):
         text = str(text)
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -149,14 +148,5 @@ if __name__ == '__main__':
     log_content = sys.stdin.read()
     email_body = create_summary(log_content)
     
-    # Call send_email with positional arguments for maximum compatibility
-    send_email(
-        args.subject,
-        email_body,
-        recipients_str,
-        args.sender,
-        args.server,
-        args.port,
-        args.username,
-        args.password
-    )
+    # ### FINAL FIX: Call send_email on a single line to prevent any indentation errors ###
+    send_email(args.subject, email_body, recipients_str, args.sender, args.server, args.port, args.username, args.password)
