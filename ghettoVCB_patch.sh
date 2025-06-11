@@ -648,8 +648,6 @@ sendMail() {
         fi
         local SUBJECT="${EMAIL_SUBJECT} - ${FINAL_STATUS}"
         
-        # ### MODIFICATION: Use -m parameter instead of pipe ###
-        # The EMAIL_LOG_OUTPUT variable already holds the path to the complete log
         local LOG_FILE_PATH="${EMAIL_LOG_OUTPUT}"
 
         # Build recipient list
@@ -663,7 +661,18 @@ sendMail() {
         fi
         local ARGS_RECIPIENTS=$(echo "${RECIPIENTS}" | sed 's/,/ /g')
 
-        logger "info" "Calling mail script for recipients: ${RECIPIENTS}..."
+        # ### FINALE LÖSUNG: Skript nach /tmp kopieren und von dort ausführen ###
+        local TMP_EXEC_PATH="/tmp/sendmail_exec_$$"
+
+        cp "${EXEC_EMAIL_BIN}" "${TMP_EXEC_PATH}"
+        if [[ $? -ne 0 ]]; then
+            logger "info" "ERROR: Failed to copy mail script to /tmp. Aborting email."
+            return
+        fi
+        
+        chmod +x "${TMP_EXEC_PATH}"
+        
+        logger "info" "Calling mail script from /tmp for recipients: ${RECIPIENTS}..."
         
         local CMD_ARGS="-f \"${EMAIL_FROM}\" -s \"${EMAIL_SERVER}\" -S \"${EMAIL_SERVER_PORT}\" -j \"${SUBJECT}\" -m \"${LOG_FILE_PATH}\""
         if [[ -n "${EMAIL_USER_NAME}" ]]; then
@@ -671,13 +680,11 @@ sendMail() {
         fi
         
         # Final command
-        ${EXEC_EMAIL_BIN} ${CMD_ARGS} ${ARGS_RECIPIENTS} >/dev/null 2>&1
+        ${TMP_EXEC_PATH} ${CMD_ARGS} ${ARGS_RECIPIENTS}
         
-        if [[ $? -ne 0 ]]; then
-            logger "info" "ERROR: Custom EMAIL_BIN failed to send email."
-        else
-            logger "info" "Successfully initiated email delivery via custom script."
-        fi
+        # Cleanup
+        rm "${TMP_EXEC_PATH}"
+        
     else
         logger "info" "EMAIL_BIN not defined or not executable. Cannot send summary email."
     fi
