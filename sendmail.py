@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# GhettoVCB-GUI Custom Sendmail Engine v5.2 (Corrected)
+# GhettoVCB-GUI Custom Sendmail Engine v5.4 (Universally Compatible)
 
 import sys
 import argparse
@@ -12,9 +12,17 @@ from email.utils import formatdate
 
 # --- HELPER FUNCTIONS ---
 
+# Universelle Prüfung für String-Typen, die in Python 2 und 3 funktioniert
+try:
+    # In Python 2 existiert 'basestring' als Oberklasse für str und unicode
+    _string_types = basestring
+except NameError:
+    # In Python 3 gibt es nur noch 'str'
+    _string_types = str
+
 def html_escape(text):
     """A simple function to escape basic HTML special characters."""
-    if not isinstance(text, basestring):
+    if not isinstance(text, _string_types):
         text = str(text)
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
