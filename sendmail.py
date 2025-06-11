@@ -10,7 +10,10 @@ from email.mime.multipart import MIMEMultipart
 from email.header import Header
 from email.utils import formatdate
 
+# --- HELPER FUNCTIONS ---
+
 def html_escape(text):
+    """A simple function to escape basic HTML special characters."""
     if not isinstance(text, basestring):
         text = str(text)
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -110,7 +113,7 @@ parser.add_argument('-S', dest='port', required=True)
 parser.add_argument('-u', dest='username')
 parser.add_argument('-p', dest='password')
 parser.add_argument('-j', dest='subject', required=True)
-parser.add_argument('-m', dest='message_file', required=True) # Message file is now required
+parser.add_argument('-m', dest='message_file', required=True)
 parser.add_argument('recipients', nargs='+')
 
 args = parser.parse_args()
