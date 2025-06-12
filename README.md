@@ -65,6 +65,41 @@ Nach diesen drei Schritten ist der Host vollständig für Backups vorbereitet.
 
 ## Weitere Funktionen
 
+### Sicherheit und Virenwarnung
+
+Hallo, das ist eine exzellente Frage und ein sehr häufiges Phänomen bei selbst erstellten Skripten und Programmen.
+
+Das Wichtigste zuerst: Keine Sorge, dein Programm enthält keinen Virus. Es handelt sich um einen sogenannten "Fehlalarm" (False Positive) von Windows Defender.
+
+Warum passiert das?
+Windows Defender und andere Antivirenprogramme suchen nicht nur nach bekannten Viren. Sie verwenden auch eine "heuristische Analyse", das heisst, sie bewerten das Verhalten und die Eigenschaften eines Programms. Dein GhettoVCB Manager weist aus Sicht von Defender mehrere "verdächtige" Merkmale auf:
+
+Unsignierter Code: Dein Programm hat keinen "digitalen Ausweis" (ein Code Signing Zertifikat), der von einer grossen, vertrauenswürdigen Firma ausgestellt wurde. Für Windows ist es eine unbekannte Datei aus dem Internet, was sofort die Alarmglocken läuten lässt. Das ist der häufigste Grund.
+
+Verdächtiges Verhalten: Überleg mal, was unser Programm tut:
+
+Es lädt Dateien von GitHub herunter (Invoke-WebRequest).
+Es baut eine SSH-Verbindung zu einem anderen Computer auf (Posh-SSH).
+Es führt auf diesem Computer Befehle aus (Invoke-SSHCommand).
+Es erstellt, schreibt und liest Dateien auf dem Host und auf deinem PC.
+Aus der Sicht eines Antivirenprogramms ist das ein Verhaltensmuster, das auch von Schadsoftware (Trojanern, Backdoors etc.) genutzt wird. Defender weiss nicht, dass wir diese Aktionen gutheissen. Er sieht nur die Aktionen selbst und schlägt vorsichtshalber Alarm.
+
+Fehlende Reputation: Dein Programm (besonders wenn du es als .exe-Datei kompiliert hast) ist ein weltweites Unikat. Kein anderer Benutzer hat genau diese Datei. Windows Defender und sein "SmartScreen"-Filter kennen das Programm nicht, es hat keine positive Reputation und wird daher nach dem Prinzip "Im Zweifel gegen den Angeklagten" als potenziell gefährlich eingestuft.
+
+Was kannst du tun?
+Du hast mehrere Möglichkeiten, damit umzugehen:
+
+1. Die einfache Lösung (Für deinen privaten Gebrauch empfohlen)
+Eine Ausnahme in Windows Defender hinzufügen: Du kannst Windows Defender anweisen, diese spezifische Datei oder den Ordner, in dem sie liegt, zu ignorieren.
+
+Öffne die Windows-Sicherheit.
+Gehe zu Viren- & Bedrohungsschutz.
+Klicke unter "Einstellungen für Viren- & Bedrohungsschutz" auf Einstellungen verwalten.
+Scrolle ganz nach unten zu Ausschlüsse und klicke auf Ausschlüsse hinzufügen oder entfernen.
+Klicke auf Ausschluss hinzufügen und wähle "Datei" (wenn du nur die eine Datei ausschliessen willst) oder "Ordner" (wenn du den ganzen Projektordner ausschliessen willst, was oft einfacher ist).
+Wähle deine Datei bzw. deinen Ordner aus.
+Danach wird Windows Defender die Datei in Zukunft ignorieren.
+
 ### Zeitplanung
 
 Über den "Zeitplanung"-Block können Sie einen automatischen Cronjob auf dem ESXi-Host einrichten. Geben Sie einfach die gewünschte Uhrzeit und die Wochentage an und klicken Sie auf **"Zeitplan speichern"**. Das Backup wird dann automatisch zu den festgelegten Zeiten ausgeführt.
