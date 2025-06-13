@@ -1699,13 +1699,18 @@ if mkdir "${WORKDIR}"; then
 
     ghettoVCB ${VM_FILE}
 
-    Get_Final_Status_Sendemail
+Get_Final_Status_Sendemail() {
+    getFinalStatus
 
-    # practically redundant
-    [[ "${WORKDIR_DEBUG}" -eq 0 ]] && rm -rf "${WORKDIR}"
-    exit $EXIT
-else
-    logger "info" "Failed to acquire lock, another instance of script may be running, giving up on ${WORKDIR}\n"
-	Get_Final_Status_Sendemail
-    exit 1
-fi
+    # ### ANPASSUNG: Verzeichnisauflistung zum Log hinzufügen ###
+    if [[ "${EMAIL_LOG}" -eq 1 ]] ; then
+        echo -ne "\r\n--- Inhalt von ${VM_BACKUP_VOLUME} ---\r\n" >> "${EMAIL_LOG_OUTPUT}"
+        ls -lR "${VM_BACKUP_VOLUME}" | sed 's/$/\r/' >> "${EMAIL_LOG_OUTPUT}"
+        echo -ne "--- Ende der Liste ---\r\n" >> "${EMAIL_LOG_OUTPUT}"
+    fi
+
+    logger "debug" "Succesfully removed lock directory - ${WORKDIR}\n"
+    logger "info" "============================== ghettoVCB LOG END ================================\n"
+
+    sendMail
+}
