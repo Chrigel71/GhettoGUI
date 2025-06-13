@@ -1518,6 +1518,7 @@ sendDelay() {
     	echo $L
     done
 }
+
 sendMail() {
     # Check if emailing is enabled at all
     if [[ "${EMAIL_LOG}" -ne 1 ]] && [[ "${EMAIL_ALERT}" -ne 1 ]]; then
@@ -1526,11 +1527,11 @@ sendMail() {
 
     # Check for custom mailer
     local EXEC_EMAIL_BIN=$(eval echo ${EMAIL_BIN})
-    # We check if the file exists (-f), not if it's executable (-x), because of the noexec flag
+    # Wir prüfen nur noch ob die Datei existiert (-f), nicht mehr ob sie ausführbar ist (-x)
     if [[ -n "${EXEC_EMAIL_BIN}" ]] && [[ -f "${EXEC_EMAIL_BIN}" ]]; then
         logger "info" "Sending email summary via custom EMAIL_BIN: ${EXEC_EMAIL_BIN}"
 
-        # Use a fallback subject if EMAIL_SUBJECT is not set in conf
+        # Betreff aus der Konfigurationsdatei verwenden
         if [[ -z "${EMAIL_SUBJECT}" ]]; then
             EMAIL_SUBJECT="ghettoVCB Report for $(hostname -s)"
         fi
@@ -1538,19 +1539,20 @@ sendMail() {
         
         local LOG_FILE_PATH="${EMAIL_LOG_OUTPUT}"
 
-        # Build recipient list
+        # Empfängerliste erstellen
         local RECIPIENTS=${EMAIL_TO}
         if [[ "${EMAIL_ERRORS_TO}" != "" ]] && [[ "${LOG_STATUS}" != "OK" ]]; then
             if [[ "${RECIPIENTS}" == "" ]]; then RECIPIENTS="${EMAIL_ERRORS_TO}"; else RECIPIENTS="${RECIPIENTS},${EMAIL_ERRORS_TO}"; fi
         fi
         if [[ -z "${RECIPIENTS}" ]]; then logger "info" "No email recipients defined."; return; fi
 
-        # ### FINALE LÖSUNG (ash-kompatibel): Argumente direkt übergeben ###
+        # ### FINALE LÖSUNG (ash-kompatibel): Skript nach /tmp kopieren und Argumente direkt übergeben ###
         local TMP_EXEC_PATH="/tmp/sendmail_exec_$$"
 
         cp "${EXEC_EMAIL_BIN}" "${TMP_EXEC_PATH}"
         if [[ $? -ne 0 ]]; then logger "info" "ERROR: Failed to copy mail script to /tmp."; return; fi
         
+        # chmod +x ist nicht mehr zwingend nötig, da wir 'python' direkt aufrufen, aber es schadet nicht
         chmod +x "${TMP_EXEC_PATH}"
         
         logger "info" "Calling mail script via 'python ${TMP_EXEC_PATH}' for recipients: ${RECIPIENTS}..."
