@@ -5,7 +5,7 @@
 # https://github.com/lamw/ghettoVCB
 # http://communities.vmware.com/docs/DOC-8760
 # Patched by AI for enhanced email notifications and robust root check
-# Use for GhettoGUI_V6.0  Christian Furrer
+# Use for GhettoGUI_V6.2  Christian Furrer
 
 ##################################################################
 #                   User Definable Parameters
