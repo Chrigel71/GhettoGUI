@@ -1742,3 +1742,4 @@ sendMail() {
         logger "info" "EMAIL_BIN not defined or not found. Cannot send summary email."
     fi
 }
+fi
