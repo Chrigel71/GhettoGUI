@@ -1701,19 +1701,44 @@ if mkdir "${WORKDIR}"; then
 
     ghettoVCB ${VM_FILE}
 
-Get_Final_Status_Sendemail() {
-    getFinalStatus
+sendMail() {
+    # Check if emailing is enabled at all
+    if [[ "${EMAIL_LOG}" -ne 1 ]]; then return; fi
 
-    # ### ANPASSUNG: Verzeichnisauflistung zum Log hinzufügen ###
-    if [[ "${EMAIL_LOG}" -eq 1 ]] ; then
-        echo -ne "\r\n--- Inhalt von ${VM_BACKUP_VOLUME} ---\r\n" >> "${EMAIL_LOG_OUTPUT}"
-        ls -lR "${VM_BACKUP_VOLUME}" | sed 's/$/\r/' >> "${EMAIL_LOG_OUTPUT}"
-        echo -ne "--- Ende der Liste ---\r\n" >> "${EMAIL_LOG_OUTPUT}"
+    local EXEC_EMAIL_BIN=$(eval echo ${EMAIL_BIN})
+    # Prüft, ob die Datei existiert (-f)
+    if [[ -n "${EXEC_EMAIL_BIN}" ]] && [[ -f "${EXEC_EMAIL_BIN}" ]]; then
+        logger "info" "Sending email summary via custom EMAIL_BIN: ${EXEC_EMAIL_BIN}"
+
+        if [[ -z "${EMAIL_SUBJECT}" ]]; then
+            EMAIL_SUBJECT="ghettoVCB Report for $(hostname -s)"
+        fi
+        local SUBJECT="${EMAIL_SUBJECT} - ${FINAL_STATUS}"
+        
+        local LOG_FILE_PATH="${EMAIL_LOG_OUTPUT}"
+        local RECIPIENTS=${EMAIL_TO}
+        if [[ -z "${RECIPIENTS}" ]]; then logger "info" "No email recipients defined."; return; fi
+
+        # Finale, ash-kompatible Aufruf-Logik
+        local TMP_EXEC_PATH="/tmp/sendmail_exec_$$"
+        cp "${EXEC_EMAIL_BIN}" "${TMP_EXEC_PATH}"
+        if [[ $? -ne 0 ]]; then logger "info" "ERROR: Failed to copy mail script to /tmp."; return; fi
+        chmod +x "${TMP_EXEC_PATH}"
+        
+        logger "info" "Calling mail script via 'python ${TMP_EXEC_PATH}' for recipients: ${RECIPIENTS}..."
+        
+        python "${TMP_EXEC_PATH}" \
+            -f "${EMAIL_FROM}" \
+            -s "${EMAIL_SERVER}" \
+            -S "${EMAIL_SERVER_PORT}" \
+            -j "${SUBJECT}" \
+            -m "${LOG_FILE_PATH}" \
+            -u "${EMAIL_USER_NAME}" \
+            -p "${EMAIL_USER_PASSWORD}" \
+            $(echo "${RECIPIENTS}" | sed 's/,/ /g')
+        
+        rm "${TMP_EXEC_PATH}"
+    else
+        logger "info" "EMAIL_BIN not defined or not found. Cannot send summary email."
     fi
-
-    logger "debug" "Succesfully removed lock directory - ${WORKDIR}\n"
-    logger "info" "============================== ghettoVCB LOG END ================================\n"
-
-    sendMail
 }
-fi
