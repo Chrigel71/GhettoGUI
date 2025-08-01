@@ -1,4 +1,4 @@
-# GhettoVCB GUI - Manager V6.0
+# GhettoVCB GUI - Manager V4.7
 
 Ein PowerShell-basiertes GUI-Tool zur einfachen Verwaltung von `ghettoVCB.sh` auf VMware ESXi-Hosts. Dieses Tool wurde entwickelt, um die Konfiguration, Installation und Ausführung von Backups mit `ghettoVCB` zu vereinfachen und eine zentrale Steuerungsoberfläche zu bieten.
 
