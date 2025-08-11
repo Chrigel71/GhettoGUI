@@ -1696,50 +1696,89 @@ if mkdir "${WORKDIR}"; then
     logger "info" "============================== ghettoVCB LOG START ==============================\n"
     logger "debug" "Succesfully acquired lock directory - ${WORKDIR}\n"
 
-    # terminate script and remove workdir when a signal is received
+# terminate script and remove workdir when a signal is received
     trap 'rm -rf "${WORKDIR}" ; exit 2' 1 2 3 13 15
 
     ghettoVCB ${VM_FILE}
 
-sendMail() {
+    #
+    # HIER IST DIE KORREKTUR:
+    # Diese Aufrufe stellen sicher, dass nach dem Backup der Status ermittelt
+    # und die E-Mail-Funktion aufgerufen wird. Diese haben vorher gefehlt.
+    #
+    getFinalStatus
+    
+    # Die sendMail-Funktion wird nun direkt hier aufgerufen, anstatt am Ende definiert zu werden.
     # Check if emailing is enabled at all
-    if [[ "${EMAIL_LOG}" -ne 1 ]]; then return; fi
-
-    local EXEC_EMAIL_BIN=$(eval echo ${EMAIL_BIN})
-    # Prüft, ob die Datei existiert (-f)
-    if [[ -n "${EXEC_EMAIL_BIN}" ]] && [[ -f "${EXEC_EMAIL_BIN}" ]]; then
-        logger "info" "Sending email summary via custom EMAIL_BIN: ${EXEC_EMAIL_BIN}"
-
-        if [[ -z "${EMAIL_SUBJECT}" ]]; then
-            EMAIL_SUBJECT="ghettoVCB Report for $(hostname -s)"
-        fi
-        local SUBJECT="${EMAIL_SUBJECT} - ${FINAL_STATUS}"
-        
-        local LOG_FILE_PATH="${EMAIL_LOG_OUTPUT}"
-        local RECIPIENTS=${EMAIL_TO}
-        if [[ -z "${RECIPIENTS}" ]]; then logger "info" "No email recipients defined."; return; fi
-
-        # Finale, ash-kompatible Aufruf-Logik
-        local TMP_EXEC_PATH="/tmp/sendmail_exec_$$"
-        cp "${EXEC_EMAIL_BIN}" "${TMP_EXEC_PATH}"
-        if [[ $? -ne 0 ]]; then logger "info" "ERROR: Failed to copy mail script to /tmp."; return; fi
-        chmod +x "${TMP_EXEC_PATH}"
-        
-        logger "info" "Calling mail script via 'python ${TMP_EXEC_PATH}' for recipients: ${RECIPIENTS}..."
-        
-        python "${TMP_EXEC_PATH}" \
-            -f "${EMAIL_FROM}" \
-            -s "${EMAIL_SERVER}" \
-            -S "${EMAIL_SERVER_PORT}" \
-            -j "${SUBJECT}" \
-            -m "${LOG_FILE_PATH}" \
-            -u "${EMAIL_USER_NAME}" \
-            -p "${EMAIL_USER_PASSWORD}" \
-            $(echo "${RECIPIENTS}" | sed 's/,/ /g')
-        
-        rm "${TMP_EXEC_PATH}"
+    if [[ "${EMAIL_LOG}" -ne 1 ]]; then
+        logger "info" "Email log is not enabled, skipping email notification."
     else
-        logger "info" "EMAIL_BIN not defined or not found. Cannot send summary email."
+        local EXEC_EMAIL_BIN
+        EXEC_EMAIL_BIN=$(eval echo "${EMAIL_BIN}")
+        
+        # Prüft, ob die Datei existiert (-f)
+        if [[ -n "${EXEC_EMAIL_BIN}" ]] && [[ -f "${EXEC_EMAIL_BIN}" ]]; then
+            logger "info" "Sending email summary via custom EMAIL_BIN: ${EXEC_EMAIL_BIN}"
+
+            if [[ -z "${EMAIL_SUBJECT}" ]]; then
+                EMAIL_SUBJECT="ghettoVCB Report for $(hostname -s)"
+            fi
+            # Der Betreff wird hier mit dem finalen Status kombiniert
+            local SUBJECT="${EMAIL_SUBJECT} - ${FINAL_STATUS}"
+            
+            local LOG_FILE_PATH="${LOG_OUTPUT}"
+            local RECIPIENTS=${EMAIL_TO}
+            if [[ -z "${RECIPIENTS}" ]]; then 
+                logger "info" "No email recipients defined."
+            else
+                # Finale, ash-kompatible Aufruf-Logik
+                local TMP_EXEC_PATH="/tmp/sendmail_exec_$$"
+                cp "${EXEC_EMAIL_BIN}" "${TMP_EXEC_PATH}"
+                if [[ $? -ne 0 ]]; then 
+                    logger "info" "ERROR: Failed to copy mail script to /tmp."
+                else
+                    chmod +x "${TMP_EXEC_PATH}"
+                    
+                    logger "info" "Calling mail script via 'python ${TMP_EXEC_PATH}' for recipients: ${RECIPIENTS}..."
+                    
+                    # Führe den Befehl aus und fange die Ausgabe (stdout und stderr) ab
+                    OUTPUT=$(python "${TMP_EXEC_PATH}" \
+                        -f "${EMAIL_FROM}" \
+                        -s "${EMAIL_SERVER}" \
+                        -S "${EMAIL_SERVER_PORT}" \
+                        -j "${SUBJECT}" \
+                        -m "${LOG_FILE_PATH}" \
+                        -u "${EMAIL_USER_NAME}" \
+                        -p "${EMAIL_USER_PASSWORD}" \
+                        $(echo "${RECIPIENTS}" | sed 's/,/ /g') 2>&1)
+                    
+                    EXIT_CODE=$?
+                    
+                    # Protokolliere das Ergebnis des E-Mail-Versands
+                    if [ $EXIT_CODE -ne 0 ]; then
+                        logger "info" "ERROR: Email script failed with exit code ${EXIT_CODE}."
+                        logger "info" "Email script output: ${OUTPUT}"
+                    else
+                        logger "info" "Email script executed."
+                        logger "info" "Email script output: ${OUTPUT}"
+                    fi
+                    
+                    rm "${TMP_EXEC_PATH}"
+                fi
+            fi
+        else
+            logger "info" "EMAIL_BIN not defined or not found. Cannot send summary email."
+        fi
     fi
-}
+
+    logger "debug" "Succesfully removed lock directory - ${WORKDIR}\n"
+    logger "info" "============================== ghettoVCB LOG END ================================\n"
+
+    # Exit with the final status code
+    exit $EXIT
+else
+    # This block handles the case where the working directory cannot be created
+    LOG_TO_STDOUT=1 logger "info" "ERROR: Unable to create working directory: ${WORKDIR}"
+    echo "ERROR: Unable to create working directory: ${WORKDIR}"
+    exit 1
 fi
