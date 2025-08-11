@@ -1,0 +1,149 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# GhettoVCB-GUI Custom Sendmail Engine v5.6 (Directory Listing)
+
+import sys
+import argparse
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.header import Header
+from email.utils import formatdate
+
+# Universelle Prüfung für String-Typen, die in Python 2 und 3 funktioniert
+try:
+    _string_types = basestring
+except NameError:
+    _string_types = str
+
+def html_escape(text):
+    """A simple function to escape basic HTML special characters."""
+    if not isinstance(text, _string_types):
+        text = str(text)
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+def create_summary(log_content):
+    summary = {
+        "status": "Unbekannt", "duration": "N/A", "vms_processed": [],
+        "errors": [], "warnings": [], "directory_listing": []
+    }
+    # NEU: Status-Flag für das Auslesen des Directory Listings
+    in_listing_section = False
+    
+    for line in log_content.splitlines():
+        clean_line = line.strip()
+        
+        # --- Parser-Logik ---
+        if "###### Final status:" in clean_line:
+            summary["status"] = clean_line.split("###### Final status:", 1)[1].replace("#", "").strip()
+        elif "Backup Duration:" in clean_line:
+            summary["duration"] = clean_line.split("Backup Duration:", 1)[1].strip()
+        elif "info: Initiate backup for" in clean_line:
+            vm_name = clean_line.split("Initiate backup for", 1)[1].strip()
+            if vm_name not in summary["vms_processed"]:
+                summary["vms_processed"].append(vm_name)
+        elif "ERROR:" in clean_line:
+             summary["errors"].append(clean_line.split("ERROR:", 1)[1].strip())
+        elif "WARN:" in clean_line or "WARNING:" in clean_line:
+             summary["warnings"].append(clean_line.split(":", 1)[1].strip())
+        
+        # NEU: Start- und End-Markierungen für das Directory Listing erkennen
+        elif "--- START Backup Directory Listing ---" in clean_line:
+            in_listing_section = True
+            continue # Die Marker-Zeile selbst überspringen
+        elif "--- END Backup Directory Listing ---" in clean_line:
+            in_listing_section = False
+            continue # Die Marker-Zeile selbst überspringen
+            
+        # Wenn wir uns im Listing-Abschnitt befinden, die Zeile hinzufügen
+        if in_listing_section:
+            summary["directory_listing"].append(line)
+            
+    # --- HTML-Erstellung ---
+    body_parts = []
+    body_parts.append("<html><head><style>body{font-family:Arial,sans-serif;font-size:14px}pre{font-family:monospace;background-color:#f0f0f0;padding:10px;border:1px solid #ccc;border-radius:5px;white-space:pre-wrap;word-wrap:break-word}.error{color:red;font-weight:bold}.warn{color:orange;font-weight:bold}</style></head><body>")
+    body_parts.append("<h2>Backup-Zusammenfassung</h2><hr><p><b>Status:</b> %s</p><p><b>Dauer:</b> %s</p>" % (html_escape(summary["status"]), html_escape(summary["duration"])))
+    body_parts.append("<h3>Verarbeitete VMs (%d)</h3>" % len(summary["vms_processed"]))
+    if summary["vms_processed"]:
+        body_parts.append("<ul>%s</ul>" % "".join(["<li>%s</li>" % html_escape(vm) for vm in summary["vms_processed"]]))
+    else:
+        body_parts.append("<p>Keine.</p>")
+    body_parts.append("<h3>Warnungen (%d)</h3>" % len(summary["warnings"]))
+    if summary["warnings"]:
+        body_parts.append("<ul>%s</ul>" % "".join(["<li class='warn'>%s</li>" % html_escape(w) for w in summary["warnings"]]))
+    else:
+        body_parts.append("<p>Keine.</p>")
+    body_parts.append("<h3>Fehler (%d)</h3>" % len(summary["errors"]))
+    if summary["errors"]:
+        body_parts.append("<ul>%s</ul>" % "".join(["<li class='error'>%s</li>" % html_escape(e) for e in summary["errors"]]))
+    else:
+        body_parts.append("<p>Keine.</p>")
+
+    # NEU: Fügt das Directory Listing am Ende hinzu, falls vorhanden
+    if summary["directory_listing"]:
+        body_parts.append("<hr><h3>Inhalt des Backup-Verzeichnisses</h3><pre>%s</pre>" % "\n".join([html_escape(line) for line in summary["directory_listing"]]))
+        
+    body_parts.append("</body></html>")
+    return "\n".join(body_parts)
+
+def send_email(subject, body, to_addr, from_addr, smtp_server, smtp_port_str, user, password):
+    msg = MIMEMultipart()
+    msg['From'] = from_addr
+    msg['To'] = to_addr
+    msg['Subject'] = Header(subject, 'utf-8')
+    msg['Date'] = formatdate(localtime=True)
+    try:
+        smtp_port = int(smtp_port_str)
+    except (ValueError, TypeError):
+        sys.stderr.write("ERROR: Invalid port: %s\n" % smtp_port_str)
+        return
+    try:
+        body_decoded = body.decode('utf-8', 'replace') if isinstance(body, bytes) else body
+    except NameError:
+        body_decoded = body
+    msg.attach(MIMEText(body_decoded, 'html', 'utf-8'))
+    server = None
+    try:
+        server = smtplib.SMTP(smtp_server, smtp_port, timeout=30)
+        server.ehlo()
+        if server.has_extn('STARTTLS'):
+            server.starttls()
+            server.ehlo()
+        if user and password:
+            server.login(user, password)
+        server.sendmail(from_addr, to_addr.split(','), msg.as_string())
+        print("INFO: Email successfully sent to %s" % to_addr)
+    except Exception as e:
+        sys.stderr.write("ERROR: Failed to send email: %s\n" % str(e))
+    finally:
+        if server:
+            try:
+                server.quit()
+            except Exception:
+                pass
+
+# --- Main execution logic ---
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='GhettoVCB Custom Sendmail Script.')
+    parser.add_argument('-f', dest='sender', required=True)
+    parser.add_argument('-s', dest='server', required=True)
+    parser.add_argument('-S', dest='port', required=True)
+    parser.add_argument('-u', dest='username')
+    parser.add_argument('-p', dest='password')
+    parser.add_argument('-j', dest='subject', required=True)
+    parser.add_argument('-m', dest='message_file', required=True)
+    parser.add_argument('recipients', nargs='+')
+
+    args = parser.parse_args()
+    recipients_str = ",".join(args.recipients)
+
+    log_content = ""
+    try:
+        with open(args.message_file, 'r') as f:
+            log_content = f.read()
+    except Exception as e:
+        sys.stderr.write("ERROR: Failed to read message file %s: %s\n" % (args.message_file, str(e)))
+        sys.exit(1)
+
+    email_body = create_summary(log_content)
+    send_email(args.subject, email_body, recipients_str, args.sender, args.server, args.port, args.username, args.password)
