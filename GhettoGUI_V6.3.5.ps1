@@ -60,8 +60,8 @@ $form.Text = "GhettoGUI ESXi & GhettoVCB Manager V6.3.5"
 $form.Size = New-Object System.Drawing.Size(830, 850) # Breite angepasst
 $form.StartPosition = "CenterScreen"
 $form.FormBorderStyle = 'FixedDialog'
-$form.MaximizeBox = $false
-$form.MinimizeBox = $false
+$form.MaximizeBox = $true
+$form.MinimizeBox = $true
 
 # --- Helper Funktionen ---
 function Write-GuiLog ($message) {
