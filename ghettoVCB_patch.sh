@@ -1329,6 +1329,22 @@ cp "${VMX_PATH}" "${VM_BACKUP_DIR}"
                     IFS="${OLD_IFS}"
                 fi
 
+                # ###############################################################
+                # ### HIER DEN NEUEN BLOCK EINFÜGEN ###
+                # ###############################################################
+                # NEUER FIX: VMX-Datei im Backup anpassen, wenn ein fester Pfad verwendet wird
+                if [[ "${USE_FIXED_BACKUP_DIR}" -eq 1 ]]; then
+                    logger "info" "Passe VMX-Datei im Backup-Ziel an, um auf konsolidierte Disks zu verweisen..."
+                    BACKUP_VMX_FILE="${VM_BACKUP_DIR}/$(basename "${VMX_PATH}")"
+                    if [ -f "${BACKUP_VMX_FILE}" ]; then
+                        sed -i 's/-[0-9]\{6\}\.vmdk/\.vmdk/g' "${BACKUP_VMX_FILE}"
+                    fi
+                fi
+                # ###############################################################
+                # ### ENDE DES NEUEN BLOCKS ###
+                # ###############################################################
+
+
                 #powered on VMs only w/snapshots
                 if [[ ${SNAP_SUCCESS} -eq 1 ]] && [[ ! ${POWER_VM_DOWN_BEFORE_BACKUP} -eq 1 ]] && [[ "${ORGINAL_VM_POWER_STATE}" == "Powered on" ]] || [[ "${ORGINAL_VM_POWER_STATE}" == "Suspended" ]]; then
                     if [[ "${NEW_VIMCMD_SNAPSHOT}" == "yes" ]] ; then
