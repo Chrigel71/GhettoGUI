@@ -1234,100 +1234,116 @@ cp "${VMX_PATH}" "${VM_BACKUP_DIR}"
                     done
                 fi
 
+                if [[ ${SNAP_SUCCESS} -eq 1 ]] ; then
+                    OLD_IFS="${IFS}"
+                    IFS=":"
+                    for j in ${VMDKS}; do
+                        VMDK=$(echo "${j}" | awk -F "###" '{print $1}')
+                        isVMDKFound=0
 
-		#backup VMDKs
-		VM_VMDK_FAILED=0
-		if [ ${SNAP_SUCCESS} -eq 1 ]; then
-			for j in ${VMDKS}; do
-				OLD_IFS="${IFS}"
-				IFS=':'
-				for i in ${j}; do
-					VMDK="${i}"
-					log info "Backing up \"${VMDK}\" ..."
+                        findVMDK "${VMDK}"
 
-					#added this section to handle VMDK(s) stored in different datastore than the VM
-					echo ${VMDK} | /bin/grep "^/vmfs/volumes" > /dev/null 2>&1
-					if [ $? -eq 0 ]; then
-						SOURCE_VMDK="${VMDK}"
-						DS_UUID="$(echo ${VMDK#/vmfs/volumes/*})"
-						DS_UUID="$(echo ${DS_UUID%/*/*})"
-						VMDK_DISK="$(echo ${VMDK##/*/})"
-						/bin/mkdir -p "${VM_BACKUP_DIR}/${DS_UUID}"
-						
-						# UNIVERSELLE LOGIK: Dateinamen für das Ziel IMMER bereinigen
-						CLEAN_VMDK_DISK=$(echo "${VMDK_DISK}" | /bin/sed 's/-[0-9]\{6\}\.vmdk/\.vmdk/')
-						DESTINATION_VMDK="${VM_BACKUP_DIR}/${DS_UUID}/${CLEAN_VMDK_DISK}"
-					else
-						SOURCE_VMDK="${VMX_DIR}/${VMDK}"
-						
-						# UNIVERSELLE LOGIK: Dateinamen für das Ziel IMMER bereinigen
-						CLEAN_VMDK=$(echo "${VMDK}" | /bin/sed 's/-[0-9]\{6\}\.vmdk/\.vmdk/')
-						DESTINATION_VMDK="${VM_BACKUP_DIR}/${CLEAN_VMDK}"
-					fi
+                        if [[ $isVMDKFound -eq 1 ]] || [[ "${VMDK_FILES_TO_BACKUP}" == "all" ]]; then
+							#added this section to handle VMDK(s) stored in different datastore than the VM
+                        echo ${VMDK} | grep "^/vmfs/volumes" > /dev/null 2>&1
+                        if [[ $? -eq 0 ]] ; then
+                            SOURCE_VMDK="${VMDK}"
+                            DS_UUID="$(echo ${VMDK#/vmfs/volumes/*})"
+                            DS_UUID="$(echo ${DS_UUID%/*/*})"
+                            VMDK_DISK="$(echo ${VMDK##/*/})"
+                            mkdir -p "${VM_BACKUP_DIR}/${DS_UUID}"
+                            
+                            # NEUE LOGIK: Dateinamen für das Ziel bereinigen, wenn ein fester Pfad aktiv ist
+                            if [[ "${USE_FIXED_BACKUP_DIR}" -eq 1 ]]; then
+                                CLEAN_VMDK_DISK=$(echo "${VMDK_DISK}" | sed 's/-[0-9]\{6\}\.vmdk/\.vmdk/')
+                                DESTINATION_VMDK="${VM_BACKUP_DIR}/${DS_UUID}/${CLEAN_VMDK_DISK}"
+                            else
+                                DESTINATION_VMDK="${VM_BACKUP_DIR}/${DS_UUID}/${VMDK_DISK}"
+                            fi
+                        else
+                            SOURCE_VMDK="${VMX_DIR}/${VMDK}"
+                            
+                            # NEUE LOGIK: Dateinamen für das Ziel bereinigen, wenn ein fester Pfad aktiv ist
+                            if [[ "${USE_FIXED_BACKUP_DIR}" -eq 1 ]]; then
+                                CLEAN_VMDK=$(echo "${VMDK}" | sed 's/-[0-9]\{6\}\.vmdk/\.vmdk/')
+                                DESTINATION_VMDK="${VM_BACKUP_DIR}/${CLEAN_VMDK}"
+                            else
+                                DESTINATION_VMDK="${VM_BACKUP_DIR}/${VMDK}"
+                            fi
+                        fi
 
-					#get the adapter type for the particular vmdk
-					VMDK_ADAPTER=$(/bin/grep -i "${VMDK}" "${VMX_PATH}" | /bin/grep -iE '(^scsi|^ide|^sata)' | /bin/awk -F "." '{print $1}')
-					ADAPTER_FORMAT=""
-					case ${VMDK_ADAPTER} in
-						ide*)
-							ADAPTER_FORMAT="-a ide"
-							;;
-						scsi*)
-							CONTROLLER=$(echo ${VMDK_ADAPTER} | /bin/sed 's/scsi//')
-							ADAPTER_TYPE=$(/bin/grep -i "${VMDK_ADAPTER}.virtualDev" "${VMX_PATH}" | /bin/awk -F "\"" '{print $2}')
-							case ${ADAPTER_TYPE} in
-								lsilogic)
-									ADAPTER_FORMAT="-a lsilogic"
-									;;
-								buslogic)
-									ADAPTER_FORMAT="-a buslogic"
-									;;
-								*)
-									#default to lsilogic for ESXi
-									ADAPTER_FORMAT="-a lsilogic"
-									;;
-							esac
-							;;
-						sata*)
-							ADAPTER_FORMAT="-a sata"
-							;;
-						*)
-							#default to lsilogic for ESXi
-							ADAPTER_FORMAT="-a lsilogic"
-							;;
-					esac
+                            #support for vRDM and deny pRDM
+                            grep "vmfsPassthroughRawDeviceMap" "${SOURCE_VMDK}" > /dev/null 2>&1
+                            if [[ $? -eq 1 ]] ; then
+                                FORMAT_OPTION="UNKNOWN"
+                                if [[ "${DISK_BACKUP_FORMAT}" == "zeroedthick" ]] ; then
+                                    if [[ "${VER}" == "4" ]] || [[ "${VER}" == "5" ]] || [[ "${VER}" == "6" ]] || [[ "${VER}" == "7" ]] ; then
+                                        FORMAT_OPTION="-d zeroedthick"
+                                    else
+                                        FORMAT_OPTION=""
+                                    fi
+                                elif [[ "${DISK_BACKUP_FORMAT}" == "2gbsparse" ]] ; then
+                                    FORMAT_OPTION="-d 2gbsparse"
+                                elif [[ "${DISK_BACKUP_FORMAT}" == "thin" ]] ; then
+                                    FORMAT_OPTION="-d thin"
+                                elif [[ "${DISK_BACKUP_FORMAT}" == "eagerzeroedthick" ]] ; then
+                                    if [[ "${VER}" == "4" ]] || [[ "${VER}" == "5" ]] || [[ "${VER}" == "6" ]] || [[ "${VER}" == "7" ]]; then
+                                        FORMAT_OPTION="-d eagerzeroedthick"
+                                    else
+                                        FORMAT_OPTION=""
+                                    fi
+                                fi
 
-					FORMAT_OPTION=""
-					if [ "${DISK_BACKUP_FORMAT}" = "thin" ]; then
-						FORMAT_OPTION="-d thin"
-					elif [ "${DISK_BACKUP_FORMAT}" = "2gbsparse" ]; then
-						FORMAT_OPTION="-d 2gbsparse"
-					elif [ "${DISK_BACKUP_FORMAT}" = "zeroedthick" ]; then
-						FORMAT_OPTION="-d zeroedthick"
-					elif [ "${DISK_BACKUP_FORMAT}" = "eagerzeroedthick" ]; then
-						FORMAT_OPTION="-d eagerzeroedthick"
-					fi
+                                if  [[ "${FORMAT_OPTION}" == "UNKNOWN" ]] ; then
+                                    logger "info" "ERROR: wrong DISK_BACKUP_FORMAT \"${DISK_BACKUP_FORMAT}\" specified for ${VM_NAME}"
+                                    VM_VMDK_FAILED=1
+                                else
+                                    VMDK_OUTPUT=$(mktemp ${WORKDIR}/ghettovcb.XXXXXX)
+                                    tail -f "${VMDK_OUTPUT}" &
+                                    TAIL_PID=$!
 
-					#actually backup the vmdk
-					VMDK_OUTPUT="${WORKDIR}/ghettoVCB-VMDK-backup-$(/bin/date +%s).log"
-					eval ${VMKFSTOOLS_CMD} -i "\"${SOURCE_VMDK}\"" ${ADAPTER_FORMAT} ${FORMAT_OPTION} "\"${DESTINATION_VMDK}\"" > "${VMDK_OUTPUT}" 2>&1
-					if [ $? -ne 0 ]; then
-						log info "ERROR: error in backing up of \"${SOURCE_VMDK}\" for ${VM_NAME}"
-						log info "Log output: $(/bin/cat ${VMDK_OUTPUT})"
-						VM_VMDK_FAILED=1
-					fi
-					/bin/rm -f "${VMDK_OUTPUT}"
-				done
-				IFS="${OLD_IFS}"
-			done
-		fi
+                                    [[ -z "$ADAPTERTYPE_DEPRECATED" ]] && ADAPTER_FORMAT=$(grep -i "ddb.adapterType" "${SOURCE_VMDK}" | awk -F "=" '{print $2}' | sed -e 's/^[[:blank:]]*//;s/[[:blank:]]*$//;s/"//g')
+                                    [[ -n "${ADAPTER_FORMAT}" ]] && ADAPTER_FORMAT="-a ${ADAPTER_FORMAT}"
 
-		# UNIVERSELLER FIX: VMX-Datei im Backup IMMER anpassen
-		log info "Passe VMX-Datei im Backup-Ziel an, um auf konsolidierte Disks zu verweisen..."
-		BACKUP_VMX_FILE="${VM_BACKUP_DIR}/$(/usr/bin/basename "${VMX_PATH}")"
-		if [ -f "${BACKUP_VMX_FILE}" ]; then
-		    /bin/sed -i 's/-[0-9]\{6\}\.vmdk/\.vmdk/g' "${BACKUP_VMX_FILE}"
-		fi
+                                    logger "debug" "${VMKFSTOOLS_CMD} -i \"${SOURCE_VMDK}\" ${ADAPTER_FORMAT} ${FORMAT_OPTION} \"${DESTINATION_VMDK}\""
+                                    eval ${VMKFSTOOLS_CMD} -i '"${SOURCE_VMDK}"' ${ADAPTER_FORMAT} ${FORMAT_OPTION} '"${DESTINATION_VMDK}"' > "${VMDK_OUTPUT}" 2>&1
+
+                                    VMDK_EXIT_CODE=$?
+                                    kill "${TAIL_PID}"
+                                    cat "${VMDK_OUTPUT}" >> "${REDIRECT}"
+                                    echo >> "${REDIRECT}"
+                                    echo
+                                    rm "${VMDK_OUTPUT}"
+
+                                    if [[ "${VMDK_EXIT_CODE}" != 0 ]] ; then
+                                        logger "info" "ERROR: error in backing up of \"${SOURCE_VMDK}\" for ${VM_NAME}"
+                                        VM_VMDK_FAILED=1
+                                    fi
+                                fi
+                            else
+                                logger "info" "WARNING: A physical RDM \"${SOURCE_VMDK}\" was found for ${VM_NAME}, which will not be backed up"
+                                VM_VMDK_FAILED=1
+                            fi
+                        fi
+                    done
+                    IFS="${OLD_IFS}"
+                fi
+
+                # ###############################################################
+                # ### HIER DEN NEUEN BLOCK EINFÜGEN ###
+                # ###############################################################
+                # NEUER FIX: VMX-Datei im Backup anpassen, wenn ein fester Pfad verwendet wird
+                if [[ "${USE_FIXED_BACKUP_DIR}" -eq 1 ]]; then
+                    logger "info" "Passe VMX-Datei im Backup-Ziel an, um auf konsolidierte Disks zu verweisen..."
+                    BACKUP_VMX_FILE="${VM_BACKUP_DIR}/$(basename "${VMX_PATH}")"
+                    if [ -f "${BACKUP_VMX_FILE}" ]; then
+                        sed -i 's/-[0-9]\{6\}\.vmdk/\.vmdk/g' "${BACKUP_VMX_FILE}"
+                    fi
+                fi
+                # ###############################################################
+                # ### ENDE DES NEUEN BLOCKS ###
+                # ###############################################################
+
 
                 #powered on VMs only w/snapshots
                 if [[ ${SNAP_SUCCESS} -eq 1 ]] && [[ ! ${POWER_VM_DOWN_BEFORE_BACKUP} -eq 1 ]] && [[ "${ORGINAL_VM_POWER_STATE}" == "Powered on" ]] || [[ "${ORGINAL_VM_POWER_STATE}" == "Suspended" ]]; then
