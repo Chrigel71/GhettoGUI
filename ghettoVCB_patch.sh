@@ -1,4 +1,6 @@
 #!/bin/sh
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/lib/vmware/bin
+export PATH
 # Author: William Lam
 # Created Date: 11/17/2008
 # http://www.williamlam.com/
@@ -1641,7 +1643,7 @@ sendMail() {
 #########################
 
 # If the NFS_IO_HACK is disabled, this restores the original script settings.
-if [[ "${ENABLE_NFS_IO_HACK}" -eq 0 ]]; then
+if [ "${ENABLE_NFS_IO_HACK}" -eq 0 ]; then
     NFS_IO_HACK_LOOP_MAX=60
     NFS_IO_HACK_SLEEP_TIMER=1
 fi
@@ -1652,20 +1654,20 @@ BACKUP_ALL_VMS=0
 EXCLUDE_SOME_VMS=0
 
 # quick sanity check on the number of arguments
-if [[ $# -lt 1 ]] || [[ $# -gt 12 ]]; then
+if [ $# -lt 1 ] || [ $# -gt 12 ]; then
     printUsage
     LOG_TO_STDOUT=1 logger "info" "ERROR: Incorrect number of arguments!"
     exit 1
 fi
 
 #Quick sanity check for the VM_BACKUP_ROTATION_COUNT configuration setting.
-if [[ "$VM_BACKUP_ROTATION_COUNT" -lt 1 ]]; then
-	VM_BACKUP_ROTATION_COUNT=1
+if [ "$VM_BACKUP_ROTATION_COUNT" -lt 1 ]; then
+    VM_BACKUP_ROTATION_COUNT=1
 fi
 
 #Sanity check for full qualified email and adjust EMAIL_FROM to be hostname@domain.com if username is missing.
-if [[ "${EMAIL_FROM%%@*}" == "" ]] ; then
-    EMAIL_FROM="`hostname -s`$EMAIL_FROM"
+if [ "${EMAIL_FROM%%@*}" = "" ] ; then
+    EMAIL_FROM="$(hostname -s)${EMAIL_FROM}"
 fi
 
 #read user input
@@ -1726,7 +1728,7 @@ EMAIL_LOG_CONTENT=${WORKDIR}/ghettoVCB-email-$$.content
 [[ -n "${VM_FILE}" ]] && VM_FILE=$(eval "echo $VM_FILE")
 
 # refuse to run with an unsafe workdir
-if [[ "${WORKDIR}" == "/" ]]; then
+if [ "${WORKDIR}" = "/" ]; then
     echo "ERROR: Refusing to run with unsafe workdir ${WORKDIR}"
     exit 1
 fi
@@ -1789,16 +1791,16 @@ if mkdir "${WORKDIR}"; then
                 EMAIL_SUBJECT="ghettoVCB Report for $(hostname -s)"
             fi
             # Der Betreff wird hier mit dem finalen Status kombiniert
-            local SUBJECT="${EMAIL_SUBJECT} - ${FINAL_STATUS}"
+            SUBJECT="${EMAIL_SUBJECT} - ${FINAL_STATUS}"
             
-            local LOG_FILE_PATH="${LOG_OUTPUT}"
-            local RECIPIENTS=${EMAIL_TO}
+                LOG_FILE_PATH="${LOG_OUTPUT}"
+				RECIPIENTS=${EMAIL_TO}
             if [[ -z "${RECIPIENTS}" ]]; then 
                 logger "info" "No email recipients defined."
             else
                 # Finale, ash-kompatible Aufruf-Logik
-                local TMP_EXEC_PATH="/tmp/sendmail_exec_$$"
-                cp "${EXEC_EMAIL_BIN}" "${TMP_EXEC_PATH}"
+                TMP_EXEC_PATH="/tmp/sendmail_exec_$$"
+    cp "${EXEC_EMAIL_BIN}" "${TMP_EXEC_PATH}"
                 if [[ $? -ne 0 ]]; then 
                     logger "info" "ERROR: Failed to copy mail script to /tmp."
                 else
