@@ -7,7 +7,8 @@ export PATH
 # https://github.com/lamw/ghettoVCB
 # http://communities.vmware.com/docs/DOC-8760
 # Patched by AI for enhanced email notifications and robust root check
-# Use for GhettoGUI_V6.3.5  Christian Furrer, 14.08.2025
+# Use for GhettoGUI_V6.3.5  Christian Furrer, 15.08.2025
+# Fixer Pfad O.K
 
 ##################################################################
 #                   User Definable Parameters
@@ -276,7 +277,43 @@ sanityCheck() {
     fi
     # ####################################################################
 
+    # --- NEU: Logrotation, falls die Logdatei groß ist ---
+    : "${MAX_LOG_SIZE_MB:=50}"   # per ENV änderbar
+    if [[ -f "${LOG_OUTPUT}" ]]; then
+        # Dateigröße in MB
+        CUR_SIZE_MB=$(du -m "${LOG_OUTPUT}" | awk '{print $1}')
+        if [[ "${CUR_SIZE_MB}" -ge "${MAX_LOG_SIZE_MB}" ]]; then
+            TS=$(date +%F_%H-%M-%S)
+            mv -- "${LOG_OUTPUT}" "${LOG_OUTPUT}.${TS}.1"
+            # optional: alte Rotationen aufräumen (nur die letzten 5 behalten)
+            ls -1 "${LOG_OUTPUT}".*.1 2>/dev/null | sort -r | tail -n +6 | xargs -r rm -f --
+        fi
+    fi
+    # --- ENDE NEU ---
+
+
+
     touch "${LOG_OUTPUT}"
+	
+	    # --- NEU: Freier Speicher auf Ziel prüfen ---
+    : "${REQUIRED_FREE_GB:=50}"
+    if [[ -n "${VM_BACKUP_VOLUME}" ]]; then
+        # Freien Platz in MB ermitteln
+        FREE_MB=$(df -Pm "${VM_BACKUP_VOLUME}" 2>/dev/null | awk 'NR==2{print $4+0}')
+        if [[ -z "${FREE_MB}" || "${FREE_MB}" -le 0 ]]; then
+            logger "info" "ERROR: Unable to detect free space on ${VM_BACKUP_VOLUME}"
+            exit 20
+        fi
+        REQ_MB=$(( REQUIRED_FREE_GB * 1024 ))
+        if [[ "${FREE_MB}" -lt "${REQ_MB}" ]]; then
+            logger "info" "ERROR: Not enough free space on ${VM_BACKUP_VOLUME}: need >= ${REQUIRED_FREE_GB}GB, have ~ $((FREE_MB/1024))GB"
+            exit 21
+        else
+            logger "info" "Free space check OK on ${VM_BACKUP_VOLUME}: ~ $((FREE_MB/1024))GB available"
+        fi
+    fi
+    # --- ENDE NEU ---
+	
     # REDIRECT is used by the "tail" trick, use REDIRECT=/dev/null to redirect vmkfstool to STDOUT only
     REDIRECT=${LOG_OUTPUT}
 
@@ -531,7 +568,7 @@ getVMDKs() {
                         fi
                         DISK_SIZE=$(echo "${DISK_SIZE_IN_SECTORS}" | awk '{printf "%.0f\n",$1*512/1024/1024/1024}')
                         VMDKS="${DISK}###${DISK_SIZE}:${VMDKS}"
-                        TOTAL_VM_SIZE=$((TOTAL_VM_SIZE_IN+DISK_SIZE))
+                        TOTAL_VM_SIZE=$((TOTAL_VM_SIZE+DISK_SIZE))
                     fi
                 fi
 
@@ -1112,24 +1149,30 @@ ghettoVCB() {
 
             # NEUE LOGIK FÜR FESTE ODER DATUMS-BASIERTE VERZEICHNISSE
 if [[ "${USE_FIXED_BACKUP_DIR}" -eq 1 ]]; then
-    # Fester Pfad: Backup direkt im VM-Ordner, altes Backup wird vorher gelöscht
     logger "info" "Fester Backup-Pfad ist aktiviert. Altes Backup wird überschrieben."
     VM_BACKUP_DIR="${BACKUP_DIR}"
 
-    # Altes Backup löschen (dies ist die neue "Rotation")
-    rm -rf "${VM_BACKUP_DIR}"
+    # --- NEU: Sicherheits-Checks vor dem Löschen ---
+    if [[ -z "${VM_BACKUP_DIR}" || "${VM_BACKUP_DIR}" == "/" ]]; then
+        logger "info" "ERROR: Refusing to delete unsafe path: '${VM_BACKUP_DIR}'"
+        exit 30
+    fi
+    case "${VM_BACKUP_DIR}" in
+        "${VM_BACKUP_VOLUME}"/*) : ;;  # ok, liegt unterhalb des Ziel-Volumes
+        *) logger "info" "ERROR: Refusing to delete outside VM_BACKUP_VOLUME (${VM_BACKUP_VOLUME})"
+           exit 31 ;;
+    esac
+    logger "info" "Removing previous contents of ${VM_BACKUP_DIR} ..."
+    rm -rf -- "${VM_BACKUP_DIR}"
+    # --- ENDE NEU ---
 else
     # Bisherige Logik: Ordner mit Datum/Uhrzeit erstellen
     VM_BACKUP_DIR="${BACKUP_DIR}/${VM_NAME}-${VM_BACKUP_DIR_NAMING_CONVENTION}"
-
-    # Rsync relative path variable if needed
     RSYNC_LINK_DIR="./${VM_NAME}-${VM_BACKUP_DIR_NAMING_CONVENTION}"
-
-    # Do indexed rotation if naming convention is set for it
     if [[ ${VM_BACKUP_DIR_NAMING_CONVENTION} = "0" ]]; then
         indexedRotate "${BACKUP_DIR}" "${VM_NAME}"
     fi
-fi
+
 # ENDE DER NEUEN LOGIK
 mkdir -p "${VM_BACKUP_DIR}"
 
@@ -1353,9 +1396,21 @@ VM_NVRAM_FILE=$(grep "nvram" "${VMX_PATH}" | awk -F "\"" '{print $2}')
 
                     #do not continue until all snapshots have been committed
                     logger "info" "Removing snapshot from ${VM_NAME} ..."
+                    # --- NEU: Timeout-gestützte Warteschleife ---
+                    : "${SNAPSHOT_COMMIT_MAX_SECS:=1800}"   # 30 min Default
+                    START=$(date +%s)
                     while ls "${VMX_DIR}" | grep -q "\-delta\.vmdk"; do
                         sleep 5
+                        NOW=$(date +%s)
+                        ELAP=$(( NOW - START ))
+                        if [[ "${ELAP}" -ge "${SNAPSHOT_COMMIT_MAX_SECS}" ]]; then
+                            logger "info" "ERROR: Snapshot commit timeout after ${SNAPSHOT_COMMIT_MAX_SECS}s for ${VM_NAME}"
+                            VM_VMDK_FAILED=1
+                            break
+                        fi
                     done
+                    # --- ENDE NEU ---
+					
                 fi
 
                 if [[ ${POWER_VM_DOWN_BEFORE_BACKUP} -eq 1 ]] && [[ "${ORGINAL_VM_POWER_STATE}" == "Powered on" ]]; then
@@ -1733,6 +1788,18 @@ if [ "${WORKDIR}" = "/" ]; then
     exit 1
 fi
 
+# --- Global Lock to prevent overlapping runs via cron ---
+LOCK="/var/run/ghettovcb.lock"
+if [ -e "$LOCK" ]; then
+    echo "Another run is in progress (lock: $LOCK). Exiting."
+    exit 0
+fi
+: > "$LOCK" || { echo "Cannot create lock $LOCK"; exit 1; }
+# Falls WORKDIR_DEBUG=1 (kein EXIT-Trap unten): Lock dennoch aufräumen
+trap 'rm -f "$LOCK"' 0
+# ---------------------------------------------------------
+
+
 if mkdir "${WORKDIR}"; then
     # create VM_FILE if we're backing up everything/specified a vm on the command line
     [[ $BACKUP_ALL_VMS -eq 1 ]] && touch ${VM_FILE}
@@ -1740,9 +1807,10 @@ if mkdir "${WORKDIR}"; then
 
     if [[ "${WORKDIR_DEBUG}" -eq 1 ]] ; then
         LOG_TO_STDOUT=1 logger "info" "Workdir: ${WORKDIR} will not! be removed on exit"
+        # (Lock wird trotzdem über den oben gesetzten EXIT-Trap entfernt)
     else
-        # remove workdir when script finishes
-        trap 'rm -rf "${WORKDIR}"' 0
+        # remove workdir + lock when script finishes
+        trap 'rm -f "$LOCK"; rm -rf "${WORKDIR}"' 0
     fi
 
     # verify that we're running in a sane environment
@@ -1754,8 +1822,9 @@ if mkdir "${WORKDIR}"; then
     logger "info" "============================== ghettoVCB LOG START ==============================\n"
     logger "debug" "Succesfully acquired lock directory - ${WORKDIR}\n"
 
-# terminate script and remove workdir when a signal is received
-    trap 'rm -rf "${WORKDIR}" ; exit 2' 1 2 3 13 15
+# terminate script and remove lock/workdir when a signal is received
+trap 'rm -f "$LOCK"; rm -rf "${WORKDIR}"; exit 2' 1 2 3 13 15
+
 
     ghettoVCB ${VM_FILE}
 
@@ -1780,7 +1849,7 @@ if mkdir "${WORKDIR}"; then
     if [[ "${EMAIL_LOG}" -ne 1 ]]; then
         logger "info" "Email log is not enabled, skipping email notification."
     else
-        local EXEC_EMAIL_BIN
+        EXEC_EMAIL_BIN
         EXEC_EMAIL_BIN=$(eval echo "${EMAIL_BIN}")
         
         # Prüft, ob die Datei existiert (-f)
@@ -1844,8 +1913,18 @@ if mkdir "${WORKDIR}"; then
     # Exit with the final status code
     exit $EXIT
 else
-    # This block handles the case where the working directory cannot be created
-    LOG_TO_STDOUT=1 logger "info" "ERROR: Unable to create working directory: ${WORKDIR}"
-    echo "ERROR: Unable to create working directory: ${WORKDIR}"
-    exit 1
+    # Lock-Verzeichnis existiert bereits -> prüfen, ob Alt-Run noch lebt
+    echo "Lock directory ${WORKDIR} already exists. Checking for stale lock..."
+    if [ -f "${WORKDIR}/pid" ]; then
+        OLD_PID="$(cat "${WORKDIR}/pid" 2>/dev/null)"
+        if [ -n "${OLD_PID}" ] && kill -0 "${OLD_PID}" 2>/dev/null; then
+            echo "Another run (PID ${OLD_PID}) is still active. Exiting."
+            exit 9
+        fi
+        echo "Stale lock detected (PID ${OLD_PID} not running). Removing ${WORKDIR} and retrying..."
+    else
+        echo "Stale lock detected (no PID file). Removing ${WORKDIR} and retrying..."
+    fi
+    rm -rf -- "${WORKDIR}" || { echo "ERROR: Cannot remove stale lock ${WORKDIR}"; exit 10; }
+    exec "$0" "$@"
 fi
