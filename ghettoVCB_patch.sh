@@ -1,4 +1,5 @@
 #!/bin/sh
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin
 # Author: William Lam
 # Created Date: 11/17/2008
 # http://www.williamlam.com/
