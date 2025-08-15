@@ -321,13 +321,13 @@ sanityCheck() {
     ESX_RELEASE=$(uname -r)
 
     case "${ESX_VERSION}" in
-        8.0.0|8.0.1|8.0.2|8.0.3)    VER=8; break;;
-        7.0.0|7.0.1|7.0.2|7.0.3)    VER=7; break;;
-        6.0.0|6.5.0|6.7.0)          VER=6; break;;
-        5.0.0|5.1.0|5.5.0)          VER=5; break;;
-        4.0.0|4.1.0)                VER=4; break;;
-        3.5.0|3i)                   VER=3; break;;
-        *)              echo "ESX(i) version not supported!"; exit 1; break;;
+        8.0.0|8.0.1|8.0.2|8.0.3)    VER=8;;
+        7.0.0|7.0.1|7.0.2|7.0.3)    VER=7;;
+        6.0.0|6.5.0|6.7.0)          VER=6;;
+        5.0.0|5.1.0|5.5.0)          VER=5;;
+        4.0.0|4.1.0)                VER=4;;
+        3.5.0|3i)                   VER=3;;
+        *)              echo "ESX(i) version not supported!"; exit 1;;
     esac
 
     NEW_VIMCMD_SNAPSHOT="no"
@@ -433,7 +433,7 @@ reConfigureGhettoVCBConfiguration() {
     GLOBAL_CONF=$1
 
     if [[ -f "${GLOBAL_CONF}" ]]; then
-        source "${GLOBAL_CONF}"
+        . "${GLOBAL_CONF}"
     else
         useDefaultConfigurations
     fi
@@ -444,7 +444,7 @@ reConfigureBackupParam() {
 
     if [[ -e "${CONFIG_DIR}/${VM}" ]]; then
         logger "info" "CONFIG - USING CONFIGURATION FILE = ${CONFIG_DIR}/${VM}"
-        source "${CONFIG_DIR}/${VM}"
+        . "${CONFIG_DIR}/${VM}"
     else
         useDefaultConfigurations
     fi
@@ -1129,14 +1129,16 @@ else
     fi
 fi
 # ENDE DER NEUEN LOGIK
-
 mkdir -p "${VM_BACKUP_DIR}"
 
 cp "${VMX_PATH}" "${VM_BACKUP_DIR}"
-			
-			
-            # Retrieve nvram file from VMX and back up
-            VM_NVRAM_FILE=$(grep "nvram" "${VMX_PATH}" | awk -F "\"" '{print $2}')
+
+# IMMER: VMX im Backup normalisieren („-000001.vmdk“ → „.vmdk“)
+BACKUP_VMX_FILE="${VM_BACKUP_DIR}/$(basename "${VMX_PATH}")"
+sed -i 's/-[0-9]\{6\}\.vmdk/.vmdk/g' "${BACKUP_VMX_FILE}"
+
+# Retrieve nvram file from VMX and back up
+VM_NVRAM_FILE=$(grep "nvram" "${VMX_PATH}" | awk -F "\"" '{print $2}')
             VM_NVRAM_PATH="${VMX_DIR}/${VM_NVRAM_FILE}"
 
             if [ -e ${VM_NVRAM_PATH} ]; then
@@ -1252,24 +1254,17 @@ cp "${VMX_PATH}" "${VM_BACKUP_DIR}"
                             DS_UUID="$(echo ${DS_UUID%/*/*})"
                             VMDK_DISK="$(echo ${VMDK##/*/})"
                             mkdir -p "${VM_BACKUP_DIR}/${DS_UUID}"
-                            
-                            # NEUE LOGIK: Dateinamen für das Ziel bereinigen, wenn ein fester Pfad aktiv ist
-                            if [[ "${USE_FIXED_BACKUP_DIR}" -eq 1 ]]; then
-                                CLEAN_VMDK_DISK=$(echo "${VMDK_DISK}" | sed 's/-[0-9]\{6\}\.vmdk/\.vmdk/')
-                                DESTINATION_VMDK="${VM_BACKUP_DIR}/${DS_UUID}/${CLEAN_VMDK_DISK}"
-                            else
-                                DESTINATION_VMDK="${VM_BACKUP_DIR}/${DS_UUID}/${VMDK_DISK}"
-                            fi
+
+							# IMMER bereinigen: „-000001.vmdk“ → „.vmdk“
+							CLEAN_VMDK_DISK=$(echo "${VMDK_DISK}" | sed 's/-[0-9]\{6\}\.vmdk$/.vmdk/')
+							DESTINATION_VMDK="${VM_BACKUP_DIR}/${DS_UUID}/${CLEAN_VMDK_DISK}"
+                         
                         else
-                            SOURCE_VMDK="${VMX_DIR}/${VMDK}"
-                            
-                            # NEUE LOGIK: Dateinamen für das Ziel bereinigen, wenn ein fester Pfad aktiv ist
-                            if [[ "${USE_FIXED_BACKUP_DIR}" -eq 1 ]]; then
-                                CLEAN_VMDK=$(echo "${VMDK}" | sed 's/-[0-9]\{6\}\.vmdk/\.vmdk/')
-                                DESTINATION_VMDK="${VM_BACKUP_DIR}/${CLEAN_VMDK}"
-                            else
-                                DESTINATION_VMDK="${VM_BACKUP_DIR}/${VMDK}"
-                            fi
+							SOURCE_VMDK="${VMX_DIR}/${VMDK}"
+
+							# IMMER bereinigen: „-000001.vmdk“ → „.vmdk“
+							CLEAN_VMDK=$(echo "${VMDK}" | sed 's/-[0-9]\{6\}\.vmdk$/.vmdk/')
+							DESTINATION_VMDK="${VM_BACKUP_DIR}/${CLEAN_VMDK}"
                         fi
 
                             #support for vRDM and deny pRDM
