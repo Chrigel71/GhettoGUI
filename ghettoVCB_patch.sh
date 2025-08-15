@@ -1,12 +1,11 @@
 #!/bin/sh
-export PATH=/bin:/sbin:/usr/bin:/usr/sbin
 # Author: William Lam
 # Created Date: 11/17/2008
 # http://www.williamlam.com/
 # https://github.com/lamw/ghettoVCB
 # http://communities.vmware.com/docs/DOC-8760
 # Patched by AI for enhanced email notifications and robust root check
-# Use for GhettoGUI_V6.2  Christian Furrer
+# Use for GhettoGUI_V6.3.5  Christian Furrer, 14.08.2025
 
 ##################################################################
 #                   User Definable Parameters
@@ -14,6 +13,9 @@ export PATH=/bin:/sbin:/usr/bin:/usr/sbin
 
 LAST_MODIFIED_DATE=2024_06_30
 VERSION=1
+
+# Use a fixed backup directory per VM, overwriting the previous backup. 1=on, 0=off
+USE_FIXED_BACKUP_DIR=0
 
 # directory that all VM backups should go (e.g. /vmfs/volumes/SAN_LUN1/mybackupdir)
 VM_BACKUP_VOLUME=/vmfs/volumes/mini-local-datastore-hdd/backups
@@ -1106,21 +1108,33 @@ ghettoVCB() {
                 fi
             fi
 
-            # directory name of the individual Virtual Machine backup followed by naming convention followed by count
-            VM_BACKUP_DIR="${BACKUP_DIR}/${VM_NAME}-${VM_BACKUP_DIR_NAMING_CONVENTION}"
+            # NEUE LOGIK FÜR FESTE ODER DATUMS-BASIERTE VERZEICHNISSE
+if [[ "${USE_FIXED_BACKUP_DIR}" -eq 1 ]]; then
+    # Fester Pfad: Backup direkt im VM-Ordner, altes Backup wird vorher gelöscht
+    logger "info" "Fester Backup-Pfad ist aktiviert. Altes Backup wird überschrieben."
+    VM_BACKUP_DIR="${BACKUP_DIR}"
 
-            # Rsync relative path variable if needed
-            RSYNC_LINK_DIR="./${VM_NAME}-${VM_BACKUP_DIR_NAMING_CONVENTION}"
+    # Altes Backup löschen (dies ist die neue "Rotation")
+    rm -rf "${VM_BACKUP_DIR}"
+else
+    # Bisherige Logik: Ordner mit Datum/Uhrzeit erstellen
+    VM_BACKUP_DIR="${BACKUP_DIR}/${VM_NAME}-${VM_BACKUP_DIR_NAMING_CONVENTION}"
 
-            # Do indexed rotation if naming convention is set for it
-            if [[ ${VM_BACKUP_DIR_NAMING_CONVENTION} = "0" ]]; then
-                indexedRotate "${BACKUP_DIR}" "${VM_NAME}"
-            fi
+    # Rsync relative path variable if needed
+    RSYNC_LINK_DIR="./${VM_NAME}-${VM_BACKUP_DIR_NAMING_CONVENTION}"
 
-            mkdir -p "${VM_BACKUP_DIR}"
+    # Do indexed rotation if naming convention is set for it
+    if [[ ${VM_BACKUP_DIR_NAMING_CONVENTION} = "0" ]]; then
+        indexedRotate "${BACKUP_DIR}" "${VM_NAME}"
+    fi
+fi
+# ENDE DER NEUEN LOGIK
 
-            cp "${VMX_PATH}" "${VM_BACKUP_DIR}"
+mkdir -p "${VM_BACKUP_DIR}"
 
+cp "${VMX_PATH}" "${VM_BACKUP_DIR}"
+			
+			
             # Retrieve nvram file from VMX and back up
             VM_NVRAM_FILE=$(grep "nvram" "${VMX_PATH}" | awk -F "\"" '{print $2}')
             VM_NVRAM_PATH="${VMX_DIR}/${VM_NVRAM_FILE}"
@@ -1230,23 +1244,33 @@ ghettoVCB() {
                         findVMDK "${VMDK}"
 
                         if [[ $isVMDKFound -eq 1 ]] || [[ "${VMDK_FILES_TO_BACKUP}" == "all" ]]; then
-                            #added this section to handle VMDK(s) stored in different datastore than the VM
-echo ${VMDK} | grep "^/vmfs/volumes" > /dev/null 2>&1
-if [[ $? -eq 0 ]] ; then
-    SOURCE_VMDK="${VMDK}"
-    DS_UUID="$(echo ${VMDK#/vmfs/volumes/*})"
-    DS_UUID="$(echo ${DS_UUID%/*/*})"
-    VMDK_DISK="$(echo ${VMDK##/*/})"
-    mkdir -p "${VM_BACKUP_DIR}/${DS_UUID}"
-    # UNIVERSELLE LOGIK: Dateinamen für das Ziel IMMER bereinigen
-    CLEAN_VMDK_DISK=$(echo "${VMDK_DISK}" | sed 's/-[0-9]\{6\}\.vmdk/\.vmdk/')
-    DESTINATION_VMDK="${VM_BACKUP_DIR}/${DS_UUID}/${CLEAN_VMDK_DISK}"
-else
-    SOURCE_VMDK="${VMX_DIR}/${VMDK}"
-    # UNIVERSELLE LOGIK: Dateinamen für das Ziel IMMER bereinigen
-    CLEAN_VMDK=$(echo "${VMDK}" | sed 's/-[0-9]\{6\}\.vmdk/\.vmdk/')
-    DESTINATION_VMDK="${VM_BACKUP_DIR}/${CLEAN_VMDK}"
-fi
+							#added this section to handle VMDK(s) stored in different datastore than the VM
+                        echo ${VMDK} | grep "^/vmfs/volumes" > /dev/null 2>&1
+                        if [[ $? -eq 0 ]] ; then
+                            SOURCE_VMDK="${VMDK}"
+                            DS_UUID="$(echo ${VMDK#/vmfs/volumes/*})"
+                            DS_UUID="$(echo ${DS_UUID%/*/*})"
+                            VMDK_DISK="$(echo ${VMDK##/*/})"
+                            mkdir -p "${VM_BACKUP_DIR}/${DS_UUID}"
+                            
+                            # NEUE LOGIK: Dateinamen für das Ziel bereinigen, wenn ein fester Pfad aktiv ist
+                            if [[ "${USE_FIXED_BACKUP_DIR}" -eq 1 ]]; then
+                                CLEAN_VMDK_DISK=$(echo "${VMDK_DISK}" | sed 's/-[0-9]\{6\}\.vmdk/\.vmdk/')
+                                DESTINATION_VMDK="${VM_BACKUP_DIR}/${DS_UUID}/${CLEAN_VMDK_DISK}"
+                            else
+                                DESTINATION_VMDK="${VM_BACKUP_DIR}/${DS_UUID}/${VMDK_DISK}"
+                            fi
+                        else
+                            SOURCE_VMDK="${VMX_DIR}/${VMDK}"
+                            
+                            # NEUE LOGIK: Dateinamen für das Ziel bereinigen, wenn ein fester Pfad aktiv ist
+                            if [[ "${USE_FIXED_BACKUP_DIR}" -eq 1 ]]; then
+                                CLEAN_VMDK=$(echo "${VMDK}" | sed 's/-[0-9]\{6\}\.vmdk/\.vmdk/')
+                                DESTINATION_VMDK="${VM_BACKUP_DIR}/${CLEAN_VMDK}"
+                            else
+                                DESTINATION_VMDK="${VM_BACKUP_DIR}/${VMDK}"
+                            fi
+                        fi
 
                             #support for vRDM and deny pRDM
                             grep "vmfsPassthroughRawDeviceMap" "${SOURCE_VMDK}" > /dev/null 2>&1
@@ -1304,12 +1328,23 @@ fi
                     done
                     IFS="${OLD_IFS}"
                 fi
-# UNIVERSELLER FIX: VMX-Datei im Backup IMMER anpassen
-logger "info" "Passe VMX-Datei im Backup-Ziel an, um auf konsolidierte Disks zu verweisen..."
-BACKUP_VMX_FILE="${VM_BACKUP_DIR}/$(basename "${VMX_PATH}")"
-if [ -f "${BACKUP_VMX_FILE}" ]; then
-    sed -i 's/-[0-9]\{6\}\.vmdk/\.vmdk/g' "${BACKUP_VMX_FILE}"
-fi
+
+                # ###############################################################
+                # ### HIER DEN NEUEN BLOCK EINFÜGEN ###
+                # ###############################################################
+                # NEUER FIX: VMX-Datei im Backup anpassen, wenn ein fester Pfad verwendet wird
+                if [[ "${USE_FIXED_BACKUP_DIR}" -eq 1 ]]; then
+                    logger "info" "Passe VMX-Datei im Backup-Ziel an, um auf konsolidierte Disks zu verweisen..."
+                    BACKUP_VMX_FILE="${VM_BACKUP_DIR}/$(basename "${VMX_PATH}")"
+                    if [ -f "${BACKUP_VMX_FILE}" ]; then
+                        sed -i 's/-[0-9]\{6\}\.vmdk/\.vmdk/g' "${BACKUP_VMX_FILE}"
+                    fi
+                fi
+                # ###############################################################
+                # ### ENDE DES NEUEN BLOCKS ###
+                # ###############################################################
+
+
                 #powered on VMs only w/snapshots
                 if [[ ${SNAP_SUCCESS} -eq 1 ]] && [[ ! ${POWER_VM_DOWN_BEFORE_BACKUP} -eq 1 ]] && [[ "${ORGINAL_VM_POWER_STATE}" == "Powered on" ]] || [[ "${ORGINAL_VM_POWER_STATE}" == "Suspended" ]]; then
                     if [[ "${NEW_VIMCMD_SNAPSHOT}" == "yes" ]] ; then
@@ -1350,9 +1385,12 @@ fi
                     fi
                     rm -rf "${VM_BACKUP_DIR}"
                     checkVMBackupRotation "${BACKUP_DIR}" "${VM_NAME}"
-                else
-                    checkVMBackupRotation "${BACKUP_DIR}" "${VM_NAME}"
-                fi
+               else
+    # Rotation nur ausführen, wenn kein fester Pfad verwendet wird
+    if [[ "${USE_FIXED_BACKUP_DIR}" -ne 1 ]]; then
+        checkVMBackupRotation "${BACKUP_DIR}" "${VM_NAME}"
+    fi
+fi
                 IFS=${TMP_IFS}
                 VMDKS=""
                 INDEP_VMDKS=""
