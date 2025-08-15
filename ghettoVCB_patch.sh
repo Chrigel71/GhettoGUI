@@ -1,5 +1,4 @@
 #!/bin/sh
-export PATH=/bin:/sbin:/usr/bin:/usr/sbin
 # Author: William Lam
 # Created Date: 11/17/2008
 # http://www.williamlam.com/
@@ -7,6 +6,8 @@ export PATH=/bin:/sbin:/usr/bin:/usr/sbin
 # http://communities.vmware.com/docs/DOC-8760
 # Patched by AI for enhanced email notifications and robust root check
 # Use for GhettoGUI_V6.3.5  Christian Furrer, 14.08.2025
+# Funktion fester Pfad hinterlet O.k
+# Normale Funktion mit Unterordner mit Datum und Rotation hat probleme am Schluss beim Verifizieren
 
 ##################################################################
 #                   User Definable Parameters
@@ -1245,32 +1246,24 @@ cp "${VMX_PATH}" "${VM_BACKUP_DIR}"
                         findVMDK "${VMDK}"
 
                         if [[ $isVMDKFound -eq 1 ]] || [[ "${VMDK_FILES_TO_BACKUP}" == "all" ]]; then
-							#added this section to handle VMDK(s) stored in different datastore than the VM
+						#added this section to handle VMDK(s) stored in different datastore than the VM
                         echo ${VMDK} | grep "^/vmfs/volumes" > /dev/null 2>&1
-                        if [[ $? -eq 0 ]] ; then
-                            SOURCE_VMDK="${VMDK}"
-                            DS_UUID="$(echo ${VMDK#/vmfs/volumes/*})"
-                            DS_UUID="$(echo ${DS_UUID%/*/*})"
-                            VMDK_DISK="$(echo ${VMDK##/*/})"
-                            mkdir -p "${VM_BACKUP_DIR}/${DS_UUID}"
-                            
-                            # NEUE LOGIK: Dateinamen für das Ziel bereinigen, wenn ein fester Pfad aktiv ist
-                            if [[ "${USE_FIXED_BACKUP_DIR}" -eq 1 ]]; then
+                        if [ $? -eq 0 ]; then
+                                SOURCE_VMDK="${VMDK}"
+                                DS_UUID="$(echo ${VMDK#/vmfs/volumes/*})"
+                                DS_UUID="$(echo ${DS_UUID%/*/*})"
+                                VMDK_DISK="$(echo ${VMDK##/*/})"
+                                mkdir -p "${VM_BACKUP_DIR}/${DS_UUID}"
+
+                                # UNIVERSELLE LOGIK: Dateinamen für das Ziel IMMER bereinigen
                                 CLEAN_VMDK_DISK=$(echo "${VMDK_DISK}" | sed 's/-[0-9]\{6\}\.vmdk/\.vmdk/')
                                 DESTINATION_VMDK="${VM_BACKUP_DIR}/${DS_UUID}/${CLEAN_VMDK_DISK}"
-                            else
-                                DESTINATION_VMDK="${VM_BACKUP_DIR}/${DS_UUID}/${VMDK_DISK}"
-                            fi
                         else
-                            SOURCE_VMDK="${VMX_DIR}/${VMDK}"
-                            
-                            # NEUE LOGIK: Dateinamen für das Ziel bereinigen, wenn ein fester Pfad aktiv ist
-                            if [[ "${USE_FIXED_BACKUP_DIR}" -eq 1 ]]; then
+                                SOURCE_VMDK="${VMX_DIR}/${VMDK}"
+
+                                # UNIVERSELLE LOGIK: Dateinamen für das Ziel IMMER bereinigen
                                 CLEAN_VMDK=$(echo "${VMDK}" | sed 's/-[0-9]\{6\}\.vmdk/\.vmdk/')
                                 DESTINATION_VMDK="${VM_BACKUP_DIR}/${CLEAN_VMDK}"
-                            else
-                                DESTINATION_VMDK="${VM_BACKUP_DIR}/${VMDK}"
-                            fi
                         fi
 
                             #support for vRDM and deny pRDM
