@@ -7,7 +7,11 @@
 # - Optionale Flags: --tls {auto,starttls,ssl,none}, --auth {auto,login,plain,none},
 #                    --no-openssl-fallback
 
-import sys, os, argparse, smtplib, socket, subprocess
+import sys, os, argparse, socket, subprocess
+try:
+    import smtplib
+except Exception:
+    smtplib = None
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.header import Header
@@ -84,16 +88,22 @@ def create_summary(log_content):
     return "\n".join(parts)
 
 def _split_recipients(to_str):
-    # akzeptiert "a@b,c@d" und/oder mehrere Positional-Args -> Liste
+    # akzeptiert "a@b,c@d" ODER "a@b;c@d" ODER gemischt/mit Leerzeichen
     items = []
-    for chunk in to_str.split(','):
+    for sep in (',',';'):
+        to_str = to_str.replace(sep, ' ')
+    for chunk in to_str.split():
         c = chunk.strip()
         if c:
             items.append(c)
     return items
 
+
 def _smtp_try_send(subject, html_body, to_csv, from_addr, host, port, user, pwd,
                    tls_mode, auth_mode):
+                           if smtplib is None:
+        sys.stderr.write("WARN: smtplib not available on this host; skipping smtplib path\n")
+        return False
     """Primärer Pfad via smtplib. Gibt True bei Erfolg, sonst False + Exception nach außen."""
     msg = MIMEMultipart()
     msg['From'] = from_addr
