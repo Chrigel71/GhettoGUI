@@ -7,15 +7,21 @@
 # - Optionale Flags: --tls {auto,starttls,ssl,none}, --auth {auto,login,plain,none},
 #                    --no-openssl-fallback
 
-import sys, os, argparse, socket, subprocess
+import sys, os, argparse, socket, subprocess, time
 try:
     import smtplib
 except Exception:
     smtplib = None
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from email.header import Header
-from email.utils import formatdate
+try:
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+    from email.header import Header
+    from email.utils import formatdate
+    HAVE_EMAIL = True
+except Exception:
+    MIMEText = MIMEMultipart = Header = formatdate = None
+    HAVE_EMAIL = False
+
 
 
 try:
@@ -87,6 +93,58 @@ def create_summary(log_content):
                      "\n".join([html_escape(x) for x in summary["directory_listing"]]))
     parts.append("</body></html>")
     return "\n".join(parts)
+    
+    def build_message(subject, html_body, to_csv, from_addr):
+    # Body in Unicode bringen
+    try:
+        body_decoded = html_body.decode('utf-8', 'replace') if isinstance(html_body, bytes) else html_body
+    except NameError:
+        body_decoded = html_body
+
+    # Falls email.mime verfügbar ist (HAVE_EMAIL True), den Komfortweg nutzen
+    try:
+        HAVE_EMAIL
+    except NameError:
+        HAVE_EMAIL = True  # falls Patch A noch nicht gesetzt ist, gehen wir vom Standard aus
+
+    if HAVE_EMAIL:
+        try:
+            msg = MIMEMultipart()
+            msg['From'] = from_addr
+            msg['To'] = to_csv
+            try:
+                msg['Subject'] = Header(subject, 'utf-8')
+            except Exception:
+                msg['Subject'] = subject
+            try:
+                msg['Date'] = formatdate(localtime=True)
+            except Exception:
+                pass
+            msg.attach(MIMEText(body_decoded, 'html', 'utf-8'))
+            return msg.as_string()
+        except Exception:
+            # Falls email.mime doch nicht verfügbar ist, auf Roh-MIME fallen wir unten zurück
+            pass
+
+    # Minimaler Roh-MIME-String (kompatibel für ESXi 6.0 ohne email.mime)
+    try:
+        import time
+    except Exception:
+        time = None
+    date_hdr = time.strftime('%a, %d %b %Y %H:%M:%S +0000', time.gmtime()) if time else ''
+    headers = [
+        'From: %s' % from_addr,
+        'To: %s' % to_csv,
+        'Subject: %s' % subject,
+        ('Date: %s' % date_hdr) if date_hdr else 'Date:',
+        'MIME-Version: 1.0',
+        'Content-Type: text/html; charset=utf-8',
+        'Content-Transfer-Encoding: 8bit',
+        '',
+        body_decoded,
+    ]
+    return "\r\n".join(headers)
+
 
 def _split_recipients(to_str):
     # akzeptiert "a@b,c@d" ODER "a@b;c@d" ODER gemischt/mit Leerzeichen
@@ -119,6 +177,8 @@ def _smtp_try_send(subject, html_body, to_csv, from_addr, host, port, user, pwd,
         body_decoded = html_body
     msg.attach(MIMEText(body_decoded, 'html', 'utf-8'))
 
+    raw = build_message(subject, html_body, to_csv, from_addr)
+    server = None
     server = None
     try:
         # TLS-Auswahl
@@ -150,7 +210,7 @@ def _smtp_try_send(subject, html_body, to_csv, from_addr, host, port, user, pwd,
         if do_auth:
             server.login(user, pwd)
 
-        server.sendmail(from_addr, _split_recipients(to_csv), msg.as_string())
+        server.sendmail(from_addr, _split_recipients(to_csv), raw)
         try:
             server.quit()
         except Exception:
@@ -192,7 +252,7 @@ def _openssl_fallback(subject, html_body, to_csv, from_addr, host, port, user, p
     msg['Subject'] = Header(subject, 'utf-8')
     msg['Date'] = formatdate(localtime=True)
     msg.attach(MIMEText(body_decoded, 'html', 'utf-8'))
-    raw = msg.as_string()
+    raw = build_message(subject, html_body, to_csv, from_addr)
 
     def b64(s):
         if base64 is None:
