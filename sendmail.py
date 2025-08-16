@@ -77,7 +77,7 @@ def create_summary(log_content):
         parts.append("<ul>%s</ul>" % "".join(["<li class='error'>%s</li>" % html_escape(e) for e in summary["errors"]]))
     else:
         parts.append("<p>Keine.</p>")
-    if summary["directory_listing"]]:
+    if summary["directory_listing"]:
         parts.append("<hr><h3>Inhalt des Backup-Verzeichnisses</h3><pre>%s</pre>" %
                      "\n".join([html_escape(x) for x in summary["directory_listing"]]))
     parts.append("</body></html>")
