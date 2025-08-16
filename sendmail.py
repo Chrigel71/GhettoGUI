@@ -17,6 +17,7 @@ from email.mime.multipart import MIMEMultipart
 from email.header import Header
 from email.utils import formatdate
 
+
 try:
     import ssl
 except Exception:
@@ -101,10 +102,12 @@ def _split_recipients(to_str):
 
 def _smtp_try_send(subject, html_body, to_csv, from_addr, host, port, user, pwd,
                    tls_mode, auth_mode):
-                           if smtplib is None:
+    """Primärer Pfad via smtplib. Gibt True bei Erfolg, sonst False."""
+    if smtplib is None:
         sys.stderr.write("WARN: smtplib not available on this host; skipping smtplib path\n")
         return False
-    """Primärer Pfad via smtplib. Gibt True bei Erfolg, sonst False + Exception nach außen."""
+
+        """Primärer Pfad via smtplib. Gibt True bei Erfolg, sonst False + Exception nach außen."""
     msg = MIMEMultipart()
     msg['From'] = from_addr
     msg['To'] = to_csv
