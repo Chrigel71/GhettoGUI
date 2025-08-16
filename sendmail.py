@@ -93,8 +93,9 @@ def create_summary(log_content):
                      "\n".join([html_escape(x) for x in summary["directory_listing"]]))
     parts.append("</body></html>")
     return "\n".join(parts)
-    
-    def build_message(subject, html_body, to_csv, from_addr):
+
+
+def build_message(subject, html_body, to_csv, from_addr):
     # Body in Unicode bringen
     try:
         body_decoded = html_body.decode('utf-8', 'replace') if isinstance(html_body, bytes) else html_body
@@ -105,7 +106,7 @@ def create_summary(log_content):
     try:
         HAVE_EMAIL
     except NameError:
-        HAVE_EMAIL = True  # falls Patch A noch nicht gesetzt ist, gehen wir vom Standard aus
+        HAVE_EMAIL = True  # falls Import-Block oben nicht gepatcht ist
 
     if HAVE_EMAIL:
         try:
@@ -123,10 +124,9 @@ def create_summary(log_content):
             msg.attach(MIMEText(body_decoded, 'html', 'utf-8'))
             return msg.as_string()
         except Exception:
-            # Falls email.mime doch nicht verfügbar ist, auf Roh-MIME fallen wir unten zurück
-            pass
+            pass  # fällt unten auf Roh-MIME zurück
 
-    # Minimaler Roh-MIME-String (kompatibel für ESXi 6.0 ohne email.mime)
+    # Minimaler Roh-MIME-String (für ESXi 6.0 ohne email.mime)
     try:
         import time
     except Exception:
@@ -144,6 +144,7 @@ def create_summary(log_content):
         body_decoded,
     ]
     return "\r\n".join(headers)
+
 
 
 def _split_recipients(to_str):
@@ -165,21 +166,9 @@ def _smtp_try_send(subject, html_body, to_csv, from_addr, host, port, user, pwd,
         sys.stderr.write("WARN: smtplib not available on this host; skipping smtplib path\n")
         return False
 
-        """Primärer Pfad via smtplib. Gibt True bei Erfolg, sonst False + Exception nach außen."""
-    msg = MIMEMultipart()
-    msg['From'] = from_addr
-    msg['To'] = to_csv
-    msg['Subject'] = Header(subject, 'utf-8')
-    msg['Date'] = formatdate(localtime=True)
-    try:
-        body_decoded = html_body.decode('utf-8','replace') if isinstance(html_body, bytes) else html_body
-    except NameError:
-        body_decoded = html_body
-    msg.attach(MIMEText(body_decoded, 'html', 'utf-8'))
-
     raw = build_message(subject, html_body, to_csv, from_addr)
     server = None
-    server = None
+
     try:
         # TLS-Auswahl
         if tls_mode == 'ssl':
@@ -240,19 +229,9 @@ def _openssl_fallback(subject, html_body, to_csv, from_addr, host, port, user, p
     if not recipients:
         raise RuntimeError("No recipients.")
 
-    try:
-        body_decoded = html_body.decode('utf-8','replace') if isinstance(html_body, bytes) else html_body
-    except NameError:
-        body_decoded = html_body
+        # gesamte MIME-Nachricht als String (funktioniert auch ohne email.mime)
+        raw = build_message(subject, html_body, to_csv, from_addr)
 
-    # komplette MIME erzeugen (gleich wie smtplib) und roh senden
-    msg = MIMEMultipart()
-    msg['From'] = from_addr
-    msg['To'] = to_csv
-    msg['Subject'] = Header(subject, 'utf-8')
-    msg['Date'] = formatdate(localtime=True)
-    msg.attach(MIMEText(body_decoded, 'html', 'utf-8'))
-    raw = build_message(subject, html_body, to_csv, from_addr)
 
     def b64(s):
         if base64 is None:
