@@ -4,7 +4,7 @@
 # - smtplib/email.mime optional (ESXi 6.0 hat teils "gestripptes" Python)
 # - Automatischer Fallback via `openssl s_client` (oder `nc` bei TLS=none)
 # - Empfänger: komma- ODER semikolon-getrennt
-# - NEU: Farbliche Hervorhebung für Status OK/ERROR
+# - Farbliche Hervorhebung für Status OK/ERROR
 
 from __future__ import print_function
 
@@ -97,7 +97,6 @@ def create_summary(log_content):
         if in_listing:
             summary["directory_listing"].append(line)
 
-    # --- START DER ÄNDERUNG ---
     # Farbe basierend auf dem Status definieren
     if "OK" in summary["status"]:
         status_color = "#28a745"  # Grün
@@ -124,7 +123,6 @@ def create_summary(log_content):
     status_html = '<span style="color: %s; font-weight: bold;">%s</span>' % (status_color, html_escape(summary["status"]))
     duration_html = html_escape(summary["duration"])
     parts.append('<p><b>Status:</b> %s<br><b>Dauer:</b> %s</p>' % (status_html, duration_html))
-    # --- ENDE DER ÄNDERUNG ---
 
     parts.append("<h3>Verarbeitete VMs (%d)</h3>" % len(summary["vms_processed"]))
     if summary["vms_processed"]:
@@ -317,83 +315,4 @@ def _openssl_fallback(subject, html_body, to_csv, from_addr, host, port, user, p
         out, err = p.communicate(payload_bytes)
         rc = p.returncode
         if rc != 0:
-            raise RuntimeError("openssl/nc failed (rc=%s): %s" % (rc, (err or b'').decode('utf-8', 'ignore')))
-        return out, err
-
-    try:
-        payload_bytes = "".join(lines).encode('utf-8')
-    except Exception:
-        payload_bytes = bytes("".join(lines))
-
-    tls_mode = (tls_mode or 'auto').lower()
-    if tls_mode == 'none':
-        cmd = ['nc', host, str(port)]
-        run_cmd(cmd, payload_bytes)
-    else:
-        if tls_mode in ('auto', 'starttls'):
-            cmd = ['openssl', 's_client', '-quiet', '-crlf', '-starttls', 'smtp', '-connect', '%s:%s' % (host, port)]
-        elif tls_mode == 'ssl':
-            cmd = ['openssl', 's_client', '-quiet', '-crlf', '-connect', '%s:%s' % (host, port)]
-        else:
-            cmd = ['openssl', 's_client', '-quiet', '-crlf', '-starttls', 'smtp', '-connect', '%s:%s' % (host, port)]
-        run_cmd(cmd, payload_bytes)
-
-    sys.stdout.write("INFO: Email successfully sent to %s (openssl fallback)\n" % to_csv)
-    return True
-
-
-def send_email(subject, body, to_addr, from_addr, smtp_server, smtp_port_str, user, password,
-               tls_mode, auth_mode, openssl_fallback=True):
-    try:
-        smtp_port = int(smtp_port_str)
-    except Exception:
-        sys.stderr.write("ERROR: Invalid port: %s\n" % smtp_port_str)
-        return
-
-    ok = _smtp_try_send(subject, body, to_addr, from_addr, smtp_server, smtp_port,
-                        user, password, tls_mode, auth_mode)
-    if ok:
-        return
-
-    if openssl_fallback:
-        try:
-            _openssl_fallback(subject, body, to_addr, from_addr, smtp_server, smtp_port,
-                              user, password, tls_mode, auth_mode)
-            return
-        except Exception as e:
-            sys.stderr.write("ERROR: OpenSSL fallback failed: %s\n" % str(e))
-
-    sys.stderr.write("ERROR: Failed to send email (no usable transport)\n")
-    sys.exit(1)
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='GhettoVCB Custom Sendmail Script (ESXi 6.0 compatible).')
-    parser.add_argument('-f', dest='sender', required=True)
-    parser.add_argument('-s', dest='server', required=True)
-    parser.add_argument('-S', dest='port', required=True)
-    parser.add_argument('-u', dest='username')
-    parser.add_argument('-p', dest='password')
-    parser.add_argument('-j', dest='subject', required=True)
-    parser.add_argument('-m', dest='message_file', required=True)
-    parser.add_argument('recipients', nargs='+')
-    parser.add_argument('--tls', choices=['auto', 'starttls', 'ssl', 'none'], default='auto')
-    parser.add_argument('--auth', choices=['auto', 'login', 'plain', 'none'], default='auto')
-    parser.add_argument('--no-openssl-fallback', action='store_true', help='disable automatic openssl fallback')
-
-    args = parser.parse_args()
-    recipients_str = ",".join(args.recipients)
-
-    try:
-        with open(args.message_file, 'r') as f:
-            log_content = f.read()
-    except Exception as e:
-        sys.stderr.write("ERROR: Failed to read message file %s: %s\n" % (args.message_file, str(e)))
-        sys.exit(1)
-
-    email_body = create_summary(log_content)
-
-    openssl_fb = (not args.no_openssl_fallback)
-    send_email(args.subject, email_body, recipients_str, args.sender,
-               args.server, args.port, args.username, args.password,
-               tls_mode=args.tls, auth_mode=args.auth, openssl_fallback=openssl_fb)
+            raise RuntimeError("openssl/nc failed (rc=%s): %s" %
