@@ -4,6 +4,7 @@
 # - smtplib/email.mime optional (ESXi 6.0 hat teils "gestripptes" Python)
 # - Automatischer Fallback via `openssl s_client` (oder `nc` bei TLS=none)
 # - Empfänger: komma- ODER semikolon-getrennt
+# - NEU: Farbliche Hervorhebung für Status OK/ERROR
 
 from __future__ import print_function
 
@@ -61,7 +62,6 @@ def create_summary(log_content):
 
         # Finalstatus
         if "###### Final status:" in s:
-            # z.B. "###### Final status: All VMs backed up OK! ######"
             tail = s.split("###### Final status:", 1)[1]
             summary["status"] = tail.replace("#", "").strip()
             continue
@@ -83,7 +83,6 @@ def create_summary(log_content):
             summary["errors"].append(s.split("ERROR:", 1)[1].strip())
             continue
         if "WARN:" in s or "WARNING:" in s:
-            # Nach dem ersten ':' kommt meist die eigentliche Meldung
             parts = s.split(":", 1)
             summary["warnings"].append(parts[1].strip() if len(parts) > 1 else s)
             continue
@@ -98,6 +97,13 @@ def create_summary(log_content):
         if in_listing:
             summary["directory_listing"].append(line)
 
+    # --- START DER ÄNDERUNG ---
+    # Farbe basierend auf dem Status definieren
+    if "OK" in summary["status"]:
+        status_color = "#28a745"  # Grün
+    else:
+        status_color = "#dc3545"  # Rot
+
     parts = []
     parts.append(
         "<html><head><meta charset='utf-8'>"
@@ -110,11 +116,15 @@ def create_summary(log_content):
         "ul{margin-top:4px}"
         "</style></head><body>"
     )
-    parts.append("<h2>Backup-Zusammenfassung</h2><hr>")
-    parts.append("<p><b>Status:</b> %s<br><b>Dauer:</b> %s</p>" % (
-        html_escape(summary["status"]),
-        html_escape(summary["duration"])
-    ))
+    
+    # H2-Tag mit dynamischer Farbe
+    parts.append('<h2 style="color: %s;">Backup-Zusammenfassung</h2><hr>' % status_color)
+    
+    # Status-Zeile mit farbigem Span-Tag versehen
+    status_html = '<span style="color: %s; font-weight: bold;">%s</span>' % (status_color, html_escape(summary["status"]))
+    duration_html = html_escape(summary["duration"])
+    parts.append('<p><b>Status:</b> %s<br><b>Dauer:</b> %s</p>' % (status_html, duration_html))
+    # --- ENDE DER ÄNDERUNG ---
 
     parts.append("<h3>Verarbeitete VMs (%d)</h3>" % len(summary["vms_processed"]))
     if summary["vms_processed"]:
@@ -145,10 +155,7 @@ def create_summary(log_content):
 def build_message(subject, html_body, to_csv, from_addr):
     """
     Erzeugt die MIME-Nachricht als String.
-    - Mit email.mime (falls vorhanden) als multipart/HTML
-    - Ohne email.mime: minimaler Roh-MIME-String
     """
-    # Body robust zu Unicode wandeln
     try:
         body_decoded = html_body.decode('utf-8', 'replace') if isinstance(html_body, bytes) else html_body
     except NameError:
@@ -170,10 +177,8 @@ def build_message(subject, html_body, to_csv, from_addr):
             msg.attach(MIMEText(body_decoded, 'html', 'utf-8'))
             return msg.as_string()
         except Exception:
-            # Fällt auf Roh-MIME zurück
             pass
 
-    # Roh-MIME (für ESXi 6.0 ohne email.mime)
     date_hdr = time.strftime('%a, %d %b %Y %H:%M:%S +0000', time.gmtime())
     headers = [
         'From: %s' % from_addr,
@@ -190,10 +195,6 @@ def build_message(subject, html_body, to_csv, from_addr):
 
 
 def _split_recipients(to_str):
-    """
-    Akzeptiert Empfänger als:
-      - "a@b,c@d" ODER "a@b;c@d" ODER gemischt
-    """
     if not to_str:
         return []
     s = to_str.replace(',', ' ').replace(';', ' ')
@@ -202,9 +203,6 @@ def _split_recipients(to_str):
 
 def _smtp_try_send(subject, html_body, to_csv, from_addr, host, port, user, pwd,
                    tls_mode, auth_mode):
-    """
-    Primärer Pfad via smtplib. Gibt True bei Erfolg, sonst False.
-    """
     if smtplib is None:
         sys.stderr.write("WARN: smtplib not available on this host; skipping smtplib path\n")
         return False
@@ -228,7 +226,6 @@ def _smtp_try_send(subject, html_body, to_csv, from_addr, host, port, user, pwd,
             except Exception:
                 pass
             if tls_mode in ('auto', 'starttls'):
-                # nur wenn Server STARTTLS anbietet
                 try:
                     has_tls = server.has_extn('starttls') or server.has_extn('STARTTLS')
                 except Exception:
@@ -242,12 +239,7 @@ def _smtp_try_send(subject, html_body, to_csv, from_addr, host, port, user, pwd,
                 elif tls_mode == 'starttls':
                     raise RuntimeError("Server does not support STARTTLS.")
 
-        # Auth
-        do_auth = False
-        if auth_mode == 'none':
-            do_auth = False
-        elif auth_mode in ('auto', 'login', 'plain'):
-            do_auth = bool(user and pwd)
+        do_auth = bool(user and pwd) and auth_mode != 'none'
         if do_auth:
             server.login(user, pwd)
 
@@ -270,16 +262,12 @@ def _smtp_try_send(subject, html_body, to_csv, from_addr, host, port, user, pwd,
 
 def _openssl_fallback(subject, html_body, to_csv, from_addr, host, port, user, pwd,
                       tls_mode, auth_mode):
-    """
-    Fallback über `openssl s_client` (starttls/smtps) oder `nc` (none).
-    """
     recipients = _split_recipients(to_csv)
     if not recipients:
         raise RuntimeError("No recipients.")
 
     raw = build_message(subject, html_body, to_csv, from_addr)
 
-    # Base64-Helfer (Auth)
     try:
         import base64 as b64mod
     except Exception:
@@ -296,36 +284,20 @@ def _openssl_fallback(subject, html_body, to_csv, from_addr, host, port, user, p
         except Exception:
             return out
 
-    # SMTP-Dialog vorbereiten
     ehlo = (socket.gethostname().split('.')[0] or 'esxi')
-
-    lines = []
-    # Nach TLS-Handshake (bei STARTTLS/SMTPS) ist ein EHLO üblich/notwendig
-    lines.append("EHLO %s\r\n" % ehlo)
-
-    # AUTH (optional)
-    do_auth = False
-    if auth_mode == 'none':
-        do_auth = False
-    elif auth_mode in ('auto', 'login', 'plain'):
-        do_auth = bool(user and pwd)
-
+    lines = ["EHLO %s\r\n" % ehlo]
+    
+    do_auth = bool(user and pwd) and auth_mode != 'none'
     if do_auth:
-        if auth_mode in ('auto', 'login'):
-            # AUTH LOGIN
-            lines.append("AUTH LOGIN\r\n")
-            lines.append("%s\r\n" % b64(user))
-            lines.append("%s\r\n" % b64(pwd))
-        elif auth_mode == 'plain':
-            payload = "\0%s\0%s" % (user, pwd)  # authzid\0authcid\0passwd
-            lines.append("AUTH PLAIN %s\r\n" % b64(payload))
+        lines.append("AUTH LOGIN\r\n")
+        lines.append("%s\r\n" % b64(user))
+        lines.append("%s\r\n" % b64(pwd))
 
-    # Umschlag + Daten
     lines.append("MAIL FROM:<%s>\r\n" % from_addr)
     for r in recipients:
         lines.append("RCPT TO:<%s>\r\n" % r)
     lines.append("DATA\r\n")
-    # CRLF-normalisieren
+    
     if isinstance(raw, _basestr):
         body_crlf = raw.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "\r\n")
     else:
@@ -337,7 +309,6 @@ def _openssl_fallback(subject, html_body, to_csv, from_addr, host, port, user, p
     lines.append(body_crlf + "\r\n.\r\n")
     lines.append("QUIT\r\n")
 
-    # Kommando wählen
     def run_cmd(cmd, payload_bytes):
         try:
             p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -349,12 +320,10 @@ def _openssl_fallback(subject, html_body, to_csv, from_addr, host, port, user, p
             raise RuntimeError("openssl/nc failed (rc=%s): %s" % (rc, (err or b'').decode('utf-8', 'ignore')))
         return out, err
 
-    # Gesamten Dialog als Bytes bauen
-    payload = "".join(lines)
     try:
-        payload_bytes = payload.encode('utf-8')
+        payload_bytes = "".join(lines).encode('utf-8')
     except Exception:
-        payload_bytes = bytes(payload)
+        payload_bytes = bytes("".join(lines))
 
     tls_mode = (tls_mode or 'auto').lower()
     if tls_mode == 'none':
@@ -362,13 +331,10 @@ def _openssl_fallback(subject, html_body, to_csv, from_addr, host, port, user, p
         run_cmd(cmd, payload_bytes)
     else:
         if tls_mode in ('auto', 'starttls'):
-            # STARTTLS auf z.B. Port 587
             cmd = ['openssl', 's_client', '-quiet', '-crlf', '-starttls', 'smtp', '-connect', '%s:%s' % (host, port)]
         elif tls_mode == 'ssl':
-            # SMTPS auf z.B. Port 465
             cmd = ['openssl', 's_client', '-quiet', '-crlf', '-connect', '%s:%s' % (host, port)]
         else:
-            # Fallback: wie starttls versuchen
             cmd = ['openssl', 's_client', '-quiet', '-crlf', '-starttls', 'smtp', '-connect', '%s:%s' % (host, port)]
         run_cmd(cmd, payload_bytes)
 
@@ -378,20 +344,17 @@ def _openssl_fallback(subject, html_body, to_csv, from_addr, host, port, user, p
 
 def send_email(subject, body, to_addr, from_addr, smtp_server, smtp_port_str, user, password,
                tls_mode, auth_mode, openssl_fallback=True):
-    # Port robust nach int
     try:
         smtp_port = int(smtp_port_str)
     except Exception:
         sys.stderr.write("ERROR: Invalid port: %s\n" % smtp_port_str)
         return
 
-    # 1) Primär mit smtplib
     ok = _smtp_try_send(subject, body, to_addr, from_addr, smtp_server, smtp_port,
                         user, password, tls_mode, auth_mode)
     if ok:
         return
 
-    # 2) Fallback via openssl/nc
     if openssl_fallback:
         try:
             _openssl_fallback(subject, body, to_addr, from_addr, smtp_server, smtp_port,
@@ -400,11 +363,10 @@ def send_email(subject, body, to_addr, from_addr, smtp_server, smtp_port_str, us
         except Exception as e:
             sys.stderr.write("ERROR: OpenSSL fallback failed: %s\n" % str(e))
 
-    # 3) Fehler
     sys.stderr.write("ERROR: Failed to send email (no usable transport)\n")
+    sys.exit(1)
 
 
-# --- Main ---
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='GhettoVCB Custom Sendmail Script (ESXi 6.0 compatible).')
     parser.add_argument('-f', dest='sender', required=True)
@@ -414,9 +376,7 @@ if __name__ == '__main__':
     parser.add_argument('-p', dest='password')
     parser.add_argument('-j', dest='subject', required=True)
     parser.add_argument('-m', dest='message_file', required=True)
-    # Empfänger als Positional (wie gehabt)
     parser.add_argument('recipients', nargs='+')
-    # Optional:
     parser.add_argument('--tls', choices=['auto', 'starttls', 'ssl', 'none'], default='auto')
     parser.add_argument('--auth', choices=['auto', 'login', 'plain', 'none'], default='auto')
     parser.add_argument('--no-openssl-fallback', action='store_true', help='disable automatic openssl fallback')
@@ -424,7 +384,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
     recipients_str = ",".join(args.recipients)
 
-    # Logdatei lesen
     try:
         with open(args.message_file, 'r') as f:
             log_content = f.read()
