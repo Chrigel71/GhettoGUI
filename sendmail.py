@@ -119,8 +119,6 @@ def create_summary(log_content):
     status_html = '<span style="color: %s; font-weight: bold;">%s</span>' % (status_color, html_escape(summary["status"]))
     duration_html = html_escape(summary["duration"])
     parts.append('<p><b>Status:</b> %s<br><b>Dauer:</b> %s</p>' % (status_html, duration_html))
-        html_escape(summary["status"]),
-        html_escape(summary["duration"])
     ))
 
     parts.append("<h3>Verarbeitete VMs (%d)</h3>" % len(summary["vms_processed"]))
