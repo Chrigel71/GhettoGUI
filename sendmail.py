@@ -95,10 +95,11 @@ def create_summary(log_content):
         if "--- END Backup Directory Listing ---" in s:
             in_listing = False
             continue
-        # >>> DIESER BLOCK WURDE VON HIER ENTFERNT <<<
-        if in_listing:
-        summary["directory_listing"].append(line)
         
+        if in_listing:
+            summary["directory_listing"].append(s)
+            continue
+
     parts = []
     parts.append(
         "<html><head><meta charset='utf-8'>"
@@ -112,13 +113,10 @@ def create_summary(log_content):
         "</style></head><body>"
     )
     
-    # +++ KORREKTUR START +++
-    # Die Zuweisung der Farbe erfolgt NACH der Schleife, basierend auf dem finalen Status.
     if "OK" in summary["status"]:
         status_color = "#28a745"  # Grün
     else:
         status_color = "#dc3545"  # Rot
-    # +++ KORREKTUR ENDE +++
 
     # H2-Tag mit dynamischer Farbe
     parts.append('<h2 style="color: %s;">Backup-Zusammenfassung</h2><hr>' % status_color)
