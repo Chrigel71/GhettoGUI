@@ -41,7 +41,6 @@ def html_escape(text):
             text = repr(text)
     return (text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
 
-
 def create_summary(log_content):
     """
     Erzeugt eine kleine HTML-Zusammenfassung aus der ghettoVCB-Logdatei.
@@ -61,7 +60,6 @@ def create_summary(log_content):
 
         # Finalstatus
         if "###### Final status:" in s:
-            # z.B. "###### Final status: All VMs backed up OK! ######"
             tail = s.split("###### Final status:", 1)[1]
             summary["status"] = tail.replace("#", "").strip()
             continue
@@ -83,7 +81,6 @@ def create_summary(log_content):
             summary["errors"].append(s.split("ERROR:", 1)[1].strip())
             continue
         if "WARN:" in s or "WARNING:" in s:
-            # Nach dem ersten ':' kommt meist die eigentliche Meldung
             parts = s.split(":", 1)
             summary["warnings"].append(parts[1].strip() if len(parts) > 1 else s)
             continue
@@ -97,11 +94,12 @@ def create_summary(log_content):
             continue
         if in_listing:
             summary["directory_listing"].append(line)
-            # Farbe basierend auf dem Status definieren
-        if "OK" in summary["status"]:
-            status_color = "#28a745"  # Grün
-        else:
-            status_color = "#dc3545"  # Rot
+
+    # Farbe basierend auf dem Status definieren
+    if "OK" in summary["status"]:
+        status_color = "#28a745"  # Grün
+    else:
+        status_color = "#dc3545"  # Rot
 
     parts = []
     parts.append(
@@ -115,6 +113,7 @@ def create_summary(log_content):
         "ul{margin-top:4px}"
         "</style></head><body>"
     )
+    
     # H2-Tag mit dynamischer Farbe
     parts.append('<h2 style="color: %s;">Backup-Zusammenfassung</h2><hr>' % status_color)
     
@@ -122,9 +121,6 @@ def create_summary(log_content):
     status_html = '<span style="color: %s; font-weight: bold;">%s</span>' % (status_color, html_escape(summary["status"]))
     duration_html = html_escape(summary["duration"])
     parts.append('<p><b>Status:</b> %s<br><b>Dauer:</b> %s</p>' % (status_html, duration_html))
-        html_escape(summary["status"]),
-        html_escape(summary["duration"])
-    ))
 
     parts.append("<h3>Verarbeitete VMs (%d)</h3>" % len(summary["vms_processed"]))
     if summary["vms_processed"]:
@@ -150,7 +146,6 @@ def create_summary(log_content):
 
     parts.append("</body></html>")
     return "\n".join(parts)
-
 
 def build_message(subject, html_body, to_csv, from_addr):
     """
