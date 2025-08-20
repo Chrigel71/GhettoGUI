@@ -96,6 +96,7 @@ def create_summary(log_content):
             in_listing = False
             continue
         
+        # Dieser Block benötigt die korrekte Einrückung
         if in_listing:
             summary["directory_listing"].append(s)
             continue
