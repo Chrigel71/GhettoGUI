@@ -95,8 +95,10 @@ def create_summary(log_content):
         if "--- END Backup Directory Listing ---" in s:
             in_listing = False
             continue
-        if in_listing:
-            summary["directory_listing"].append(line)
+        if "OK" in summary["status"]:
+            status_color = "#28a745"  # Grün
+        else:
+            status_color = "#dc3545"  # Rot
 
     parts = []
     parts.append(
@@ -110,8 +112,13 @@ def create_summary(log_content):
         "ul{margin-top:4px}"
         "</style></head><body>"
     )
-    parts.append("<h2>Backup-Zusammenfassung</h2><hr>")
-    parts.append("<p><b>Status:</b> %s<br><b>Dauer:</b> %s</p>" % (
+    # H2-Tag mit dynamischer Farbe
+    parts.append('<h2 style="color: %s;">Backup-Zusammenfassung</h2><hr>' % status_color)
+    
+    # Status-Zeile mit farbigem Span-Tag versehen
+    status_html = '<span style="color: %s; font-weight: bold;">%s</span>' % (status_color, html_escape(summary["status"]))
+    duration_html = html_escape(summary["duration"])
+    parts.append('<p><b>Status:</b> %s<br><b>Dauer:</b> %s</p>' % (status_html, duration_html))
         html_escape(summary["status"]),
         html_escape(summary["duration"])
     ))
