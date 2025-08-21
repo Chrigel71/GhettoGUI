@@ -69,17 +69,17 @@ def create_summary(log_content):
 
         # --- Universelles Parsing für beide Log-Typen ---
 
-        # Finalstatus (sehr robust)
+        # Finalstatus (NEU: Robustes Parsen)
         if "final status:" in s_lower:
-            summary["status"] = s.split(":", 1)[-1].replace("#", "").strip()
+            summary["status"] = s[s_lower.find("final status:") + len("final status:"):].replace("#", "").strip()
             continue
 
-        # Dauer (sehr robust)
+        # Dauer (NEU: Robustes Parsen)
         if "backup duration:" in s_lower:
-            summary["duration"] = s.split(":", 1)[-1].strip()
+            summary["duration"] = s[s_lower.find("backup duration:") + len("backup duration:"):].strip()
             continue
 
-        # VM Start (sehr robust)
+        # VM Start (robust, achtet auf Gross/Kleinschreibung)
         if "initiate backup for" in s_lower:
             vm = s[s_lower.find("initiate backup for") + len("initiate backup for"):].strip()
             current_vm = vm
@@ -88,16 +88,17 @@ def create_summary(log_content):
             continue
         
         # Fehler und Warnungen (robust)
-        if s_lower.startswith("error:") or " error: " in s_lower:
-            msg = s.split(":", 1)[-1].strip()
+        if "error:" in s_lower:
+            msg = s[s_lower.find("error:") + len("error:"):].strip()
             vm_context = current_vm
             if msg.startswith("[") and "]" in msg:
                 vm_context = msg.split(']')[0][1:]
                 msg = msg.split('] - ', 1)[-1]
             summary["errors"].append((vm_context, msg))
             continue
-        if s_lower.startswith("warn:") or s_lower.startswith("warning:"):
-            msg = s.split(":", 1)[-1].strip()
+        if "warn:" in s_lower or "warning:" in s_lower:
+            find_str = "warning:" if "warning:" in s_lower else "warn:"
+            msg = s[s_lower.find(find_str) + len(find_str):].strip()
             vm_context = current_vm
             if msg.startswith("[") and "]" in msg:
                 vm_context = msg.split(']')[0][1:]
@@ -222,6 +223,7 @@ def create_summary(log_content):
 
     parts.append("</body></html>")
     return "\n".join(parts)
+
 
 def build_message(subject, html_body, to_csv, from_addr):
     """
