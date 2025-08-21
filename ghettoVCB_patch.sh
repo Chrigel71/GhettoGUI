@@ -7,8 +7,9 @@ export PATH
 # https://github.com/lamw/ghettoVCB
 # http://communities.vmware.com/docs/DOC-8760
 # Patched by AI for enhanced email notifications and robust root check
-# Use for GhettoGUI_V6.3.5  Christian Furrer, 15.08.2025
+# Use for GhettoGUI_V6.3.5  Christian Furrer, 21.08.2025
 # Fixer Pfad O.K
+# Erweitertes email Log
 
 ##################################################################
 #                   User Definable Parameters
@@ -399,9 +400,11 @@ sanityCheck() {
 startTimer() {
     START_TIME=$(date)
     S_TIME=$(date +%s)
+    echo "Startzeit: $(date '+%Y-%m-%d %H:%M:%S')" >> "${LOG_OUTPUT}"
 }
 
 endTimer() {
+    echo "Endzeit: $(date '+%Y-%m-%d %H:%M:%S')" >> "${LOG_OUTPUT}"
     END_TIME=$(date)
     E_TIME=$(date +%s)
     DURATION=$(echo $((E_TIME - S_TIME)))
@@ -951,6 +954,18 @@ ghettoVCB() {
     VM_OK=0
     VM_FAILED=0
     VMDK_FAILED=0
+
+# Füge direkt DANACH diesen Block ein:
+    # Log configuration details
+    echo "Job-Konfiguration:" >> "${LOG_OUTPUT}"
+    echo "  - Typ: GhettoVCB Backup" >> "${LOG_OUTPUT}"
+    echo "  - Backup-Ziel: ${VM_BACKUP_VOLUME}" >> "${LOG_OUTPUT}"
+    echo "  - Rotation: ${VM_BACKUP_ROTATION_COUNT}" >> "${LOG_OUTPUT}"
+    echo "  - Disk-Format: ${DISK_BACKUP_FORMAT}" >> "${LOG_OUTPUT}"
+
+    # Log initial storage space
+    echo "Speicherplatz (Vorher):" >> "${LOG_OUTPUT}"
+    echo "  - Ziel (${VM_BACKUP_VOLUME}): $(df -h "${VM_BACKUP_VOLUME}" 2>/dev/null | tail -n 1)" >> "${LOG_OUTPUT}"
     PROBLEM_VMS=
 
     dumpHostInfo
@@ -1355,7 +1370,7 @@ VM_NVRAM_FILE=$(grep "nvram" "${VMX_PATH}" | awk -F "\"" '{print $2}')
                                     rm "${VMDK_OUTPUT}"
 
                                     if [[ "${VMDK_EXIT_CODE}" != 0 ]] ; then
-                                        logger "info" "ERROR: error in backing up of \"${SOURCE_VMDK}\" for ${VM_NAME}"
+                                        logger "info" "ERROR: [${VM_NAME}] - Fehler beim Backup von \"${SOURCE_VMDK}\""
                                         VM_VMDK_FAILED=1
                                     fi
                                 fi
@@ -1534,6 +1549,10 @@ fi
     #        fi
     #    done
     #fi
+	
+# Füge direkt DAVOR diesen Block ein:
+    echo "Speicherplatz (Nachher):" >> "${LOG_OUTPUT}"
+    echo "  - Ziel (${VM_BACKUP_VOLUME}): $(df -h "${VM_BACKUP_VOLUME}" 2>/dev/null | tail -n 1)" >> "${LOG_OUTPUT}"
     unset IFS
 
     if [[ ${#VM_STARTUP_ORDER} -gt 0 ]] && [[ "${LOG_LEVEL}" != "dryrun" ]]; then
