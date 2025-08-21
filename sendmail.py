@@ -104,7 +104,6 @@ def create_summary(log_content):
         if s.startswith("--- START DES DETAILLOGS ---"): in_config=in_storage_before=in_storage_after=False; in_detailed = True; continue
         if s.startswith("--- ENDE DES DETAILLOGS ---"): in_detailed = False; continue
         
-        # +++ KORRIGIERTE ZEILE +++
         if s.startswith("--- START Backup Directory Listing ---"): in_detailed = False; in_storage_after = False; in_listing = True; continue
         if s.startswith("--- END Backup Directory Listing ---"): in_listing = False; continue
 
@@ -249,6 +248,13 @@ def _smtp_try_send(subject, html_body, to_csv, from_addr, host, port, user, pwd,
         return False
 
     raw = build_message(subject, html_body, to_csv, from_addr)
+    
+    # +++ KORREKTUR FÜR PYTHON 3 (ESXi 8.x) +++
+    # Python 3 smtplib erwartet bytes, Python 2 erwartet str (was bereits bytes ist).
+    # Wenn die Nachricht non-ASCII-Zeichen enthält, würde Python 3 ohne encode() fehlschlagen.
+    if sys.version_info[0] == 3:
+        raw = raw.encode('utf-8')
+        
     server = None
     try:
         if tls_mode == 'ssl':
