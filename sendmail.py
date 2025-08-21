@@ -43,7 +43,7 @@ def html_escape(text):
 
 def create_summary(log_content):
     """
-    Erzeugt eine erweiterte HTML-Zusammenfassung aus ghettoVCB-Logdateien.
+    Erzeugt eine universelle HTML-Zusammenfassung.
     Kann sowohl einfache Backup-Logs als auch detaillierte Replikations-Logs verarbeiten.
     """
     summary = {
@@ -61,45 +61,47 @@ def create_summary(log_content):
     in_storage_after = False
     in_config = False
     current_vm = "Allgemein"
+    is_detailed_log = False
 
     for line in log_content.splitlines():
         s = line.strip()
-        
+        s_lower = s.lower()
+
         # --- Universelles Parsing für beide Log-Typen ---
 
-        # Finalstatus (robust)
-        if "###### Final status:" in s:
-            summary["status"] = s.split("###### Final status:", 1)[1].replace("#", "").strip()
+        # Finalstatus (sehr robust)
+        if "final status:" in s_lower:
+            summary["status"] = s.split(":", 1)[-1].replace("#", "").strip()
             continue
 
-        # Dauer (robust)
-        if "Backup Duration:" in s:
-            summary["duration"] = s.split("Backup Duration:", 1)[1].strip()
+        # Dauer (sehr robust)
+        if "backup duration:" in s_lower:
+            summary["duration"] = s.split(":", 1)[-1].strip()
             continue
 
-        # VM Start (robust, achtet auf Gross/Kleinschreibung)
-        if "info: Initiate backup for" in s.lower():
-            vm = s.lower().split("initiate backup for", 1)[1].strip()
+        # VM Start (sehr robust)
+        if "initiate backup for" in s_lower:
+            vm = s[s_lower.find("initiate backup for") + len("initiate backup for"):].strip()
             current_vm = vm
             if vm and vm not in summary["vms_processed"]:
                 summary["vms_processed"].append(vm)
             continue
         
         # Fehler und Warnungen (robust)
-        if "ERROR:" in s:
-            msg = s.split("ERROR:", 1)[1].strip()
+        if s_lower.startswith("error:") or " error: " in s_lower:
+            msg = s.split(":", 1)[-1].strip()
             vm_context = current_vm
             if msg.startswith("[") and "]" in msg:
                 vm_context = msg.split(']')[0][1:]
-                msg = msg.split('] - ', 1)[1]
+                msg = msg.split('] - ', 1)[-1]
             summary["errors"].append((vm_context, msg))
             continue
-        if "WARN:" in s or "WARNING:" in s:
-            msg = s.split(":", 1)[1].strip() if ":" in s else s
+        if s_lower.startswith("warn:") or s_lower.startswith("warning:"):
+            msg = s.split(":", 1)[-1].strip()
             vm_context = current_vm
             if msg.startswith("[") and "]" in msg:
                 vm_context = msg.split(']')[0][1:]
-                msg = msg.split('] - ', 1)[1]
+                msg = msg.split('] - ', 1)[-1]
             summary["warnings"].append((vm_context, msg))
             continue
 
@@ -107,28 +109,27 @@ def create_summary(log_content):
 
         # Job-Details
         if s.startswith("Startzeit:"):
-            summary["start_time"] = s.split(":", 1)[1].strip()
+            summary["start_time"] = s.split(":", 1)[-1].strip()
+            is_detailed_log = True
             continue
         if s.startswith("Endzeit:"):
-            summary["end_time"] = s.split(":", 1)[1].strip()
+            summary["end_time"] = s.split(":", 1)[-1].strip()
+            is_detailed_log = True
             continue
 
         # Sektions-Parser
         if s.startswith("Job-Konfiguration:"):
-            in_config = True; continue
+            in_config = True; is_detailed_log = True; continue
         if s.startswith("Speicherplatz (Vorher):"):
-            in_config = False; in_storage_before = True; continue
+            in_config = False; in_storage_before = True; is_detailed_log = True; continue
         if s.startswith("Speicherplatz (Nachher):"):
-            in_storage_before = False; in_storage_after = True; continue
+            in_storage_before = False; in_storage_after = True; is_detailed_log = True; continue
         if "###" in s and "Starte Verarbeitung für VM:" in s:
              in_config = in_storage_before = in_storage_after = False
 
-        if in_config:
-            summary["config"].append(s); continue
-        if in_storage_before:
-            summary["storage_before"].append(s); continue
-        if in_storage_after:
-            summary["storage_after"].append(s); continue
+        if in_config: summary["config"].append(s); continue
+        if in_storage_before: summary["storage_before"].append(s); continue
+        if in_storage_after: summary["storage_after"].append(s); continue
 
         # Directory Listing
         if "--- START Backup Directory Listing ---" in s:
@@ -161,33 +162,34 @@ def create_summary(log_content):
     
     parts.append('<h2 style="color: %s;">Backup-Zusammenfassung</h2><hr>' % status_color)
     status_html = '<span style="color: %s; font-weight: bold;">%s</span>' % (status_color, html_escape(summary["status"]))
-    parts.append('<p><b>Status:</b> %s</p>' % status_html)
-
-    # Zeige Job-Details nur an, wenn sie gefunden wurden (d.h. im Replikations-Log)
-    if summary["start_time"] != "N/A":
+    
+    # Entscheide, welches Layout verwendet wird
+    if is_detailed_log:
+        parts.append('<p><b>Status:</b> %s</p>' % status_html)
         parts.append("<h4>Job-Details:</h4><ul>")
         parts.append("<li><b>Startzeit:</b> %s</li>" % html_escape(summary["start_time"]))
         parts.append("<li><b>Endzeit:</b> %s</li>" % html_escape(summary["end_time"]))
         parts.append("<li><b>Dauer:</b> %s</li>" % html_escape(summary["duration"]))
         parts.append("</ul>")
-    else:
-        parts.append("<p><b>Dauer:</b> %s</p>" % html_escape(summary["duration"]))
 
-    if summary["config"]:
-        parts.append("<h4>Konfiguration:</h4><ul>")
-        for item in summary["config"]:
-            parts.append("<li>%s</li>" % html_escape(item))
-        parts.append("</ul>")
+        if summary["config"]:
+            parts.append("<h4>Konfiguration:</h4><ul>")
+            for item in summary["config"]:
+                parts.append("<li>%s</li>" % html_escape(item))
+            parts.append("</ul>")
         
-    if summary["storage_before"] or summary["storage_after"]:
-        parts.append("<h4>Speicherplatz:</h4><pre>")
-        if summary["storage_before"]:
-            parts.append("<b>Vor dem Job:</b>")
-            parts.append("\n".join(html_escape(s) for s in summary["storage_before"]))
-        if summary["storage_after"]:
-            parts.append("\n<b>Nach dem Job:</b>")
-            parts.append("\n".join(html_escape(s) for s in summary["storage_after"]))
-        parts.append("</pre>")
+        if summary["storage_before"] or summary["storage_after"]:
+            parts.append("<h4>Speicherplatz:</h4><pre>")
+            if summary["storage_before"]:
+                parts.append("<b>Vor dem Job:</b>")
+                parts.append("\n".join(html_escape(s) for s in summary["storage_before"]))
+            if summary["storage_after"]:
+                parts.append("\n<b>Nach dem Job:</b>")
+                parts.append("\n".join(html_escape(s) for s in summary["storage_after"]))
+            parts.append("</pre>")
+    else: # Einfaches Layout für Standard-Backups
+        parts.append('<p><b>Status:</b> %s</p>' % status_html)
+        parts.append("<p><b>Dauer:</b> %s</p>" % html_escape(summary["duration"]))
 
     parts.append("<hr>")
     parts.append("<h3>Verarbeitete VMs (%d)</h3>" % len(summary["vms_processed"]))
