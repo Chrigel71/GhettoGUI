@@ -41,10 +41,10 @@ def html_escape(text):
             text = repr(text)
     return (text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
 
-
 def create_summary(log_content):
     """
-    Erzeugt eine erweiterte HTML-Zusammenfassung aus der ghettoVCB-Logdatei.
+    Erzeugt eine erweiterte HTML-Zusammenfassung aus ghettoVCB-Logdateien.
+    Kann sowohl einfache Backup-Logs als auch detaillierte Replikations-Logs verarbeiten.
     """
     summary = {
         "status": "Unbekannt", "duration": "N/A", "start_time": "N/A", "end_time": "N/A",
@@ -64,15 +64,47 @@ def create_summary(log_content):
 
     for line in log_content.splitlines():
         s = line.strip()
+        
+        # --- Universelles Parsing für beide Log-Typen ---
 
-        # Finalstatus und Dauer
+        # Finalstatus (robust)
         if "###### Final status:" in s:
-            summary["status"] = s.split(":", 1)[1].replace("#", "").strip()
+            summary["status"] = s.split("###### Final status:", 1)[1].replace("#", "").strip()
             continue
+
+        # Dauer (robust)
         if "Backup Duration:" in s:
-            summary["duration"] = s.split(":", 1)[1].strip()
+            summary["duration"] = s.split("Backup Duration:", 1)[1].strip()
+            continue
+
+        # VM Start (robust, achtet auf Gross/Kleinschreibung)
+        if "info: Initiate backup for" in s.lower():
+            vm = s.lower().split("initiate backup for", 1)[1].strip()
+            current_vm = vm
+            if vm and vm not in summary["vms_processed"]:
+                summary["vms_processed"].append(vm)
             continue
         
+        # Fehler und Warnungen (robust)
+        if "ERROR:" in s:
+            msg = s.split("ERROR:", 1)[1].strip()
+            vm_context = current_vm
+            if msg.startswith("[") and "]" in msg:
+                vm_context = msg.split(']')[0][1:]
+                msg = msg.split('] - ', 1)[1]
+            summary["errors"].append((vm_context, msg))
+            continue
+        if "WARN:" in s or "WARNING:" in s:
+            msg = s.split(":", 1)[1].strip() if ":" in s else s
+            vm_context = current_vm
+            if msg.startswith("[") and "]" in msg:
+                vm_context = msg.split(']')[0][1:]
+                msg = msg.split('] - ', 1)[1]
+            summary["warnings"].append((vm_context, msg))
+            continue
+
+        # --- Parsing nur für detaillierte Replikations-Logs ---
+
         # Job-Details
         if s.startswith("Startzeit:"):
             summary["start_time"] = s.split(":", 1)[1].strip()
@@ -92,40 +124,11 @@ def create_summary(log_content):
              in_config = in_storage_before = in_storage_after = False
 
         if in_config:
-            summary["config"].append(s)
-            continue
+            summary["config"].append(s); continue
         if in_storage_before:
-            summary["storage_before"].append(s)
-            continue
+            summary["storage_before"].append(s); continue
         if in_storage_after:
-            summary["storage_after"].append(s)
-            continue
-
-        # VM-spezifisches Parsing
-        if "INFO: Initiate backup for" in s:
-            vm = s.split("Initiate backup for", 1)[1].strip()
-            current_vm = vm
-            if vm and vm not in summary["vms_processed"]:
-                summary["vms_processed"].append(vm)
-            continue
-
-        # Fehler und Warnungen mit VM-Kontext
-        if "ERROR:" in s:
-            msg = s.split("ERROR:", 1)[1].strip()
-            vm_context = current_vm
-            if msg.startswith("[") and "]" in msg:
-                vm_context = msg.split(']')[0][1:]
-                msg = msg.split('] - ', 1)[1]
-            summary["errors"].append((vm_context, msg))
-            continue
-        if "WARN:" in s:
-            msg = s.split("WARN:", 1)[1].strip()
-            vm_context = current_vm
-            if msg.startswith("[") and "]" in msg:
-                vm_context = msg.split(']')[0][1:]
-                msg = msg.split('] - ', 1)[1]
-            summary["warnings"].append((vm_context, msg))
-            continue
+            summary["storage_after"].append(s); continue
 
         # Directory Listing
         if "--- START Backup Directory Listing ---" in s:
@@ -133,7 +136,7 @@ def create_summary(log_content):
         if "--- END Backup Directory Listing ---" in s:
             in_listing = False; continue
         if in_listing:
-            summary["directory_listing"].append(line) # original line mit einrückung
+            summary["directory_listing"].append(line)
 
     # --- HTML-Erstellung ---
     if "OK" in summary["status"]:
@@ -160,11 +163,15 @@ def create_summary(log_content):
     status_html = '<span style="color: %s; font-weight: bold;">%s</span>' % (status_color, html_escape(summary["status"]))
     parts.append('<p><b>Status:</b> %s</p>' % status_html)
 
-    parts.append("<h4>Job-Details:</h4><ul>")
-    parts.append("<li><b>Startzeit:</b> %s</li>" % html_escape(summary["start_time"]))
-    parts.append("<li><b>Endzeit:</b> %s</li>" % html_escape(summary["end_time"]))
-    parts.append("<li><b>Dauer:</b> %s</li>" % html_escape(summary["duration"]))
-    parts.append("</ul>")
+    # Zeige Job-Details nur an, wenn sie gefunden wurden (d.h. im Replikations-Log)
+    if summary["start_time"] != "N/A":
+        parts.append("<h4>Job-Details:</h4><ul>")
+        parts.append("<li><b>Startzeit:</b> %s</li>" % html_escape(summary["start_time"]))
+        parts.append("<li><b>Endzeit:</b> %s</li>" % html_escape(summary["end_time"]))
+        parts.append("<li><b>Dauer:</b> %s</li>" % html_escape(summary["duration"]))
+        parts.append("</ul>")
+    else:
+        parts.append("<p><b>Dauer:</b> %s</p>" % html_escape(summary["duration"]))
 
     if summary["config"]:
         parts.append("<h4>Konfiguration:</h4><ul>")
