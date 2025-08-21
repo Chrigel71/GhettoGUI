@@ -49,11 +49,17 @@ def create_summary(log_content):
     summary = {
         "status": "Unbekannt", "duration": "N/A", "start_time": "N/A", "end_time": "N/A",
         "vms_processed": [],
-        "errors": [], "warnings": [],
-        "config": [], "storage_before": [], "storage_after": [],
-        "directory_listing": [], "detailed_log": []
+        "errors": [], # Liste von Tupeln: (vm, nachricht)
+        "warnings": [], # Liste von Tupeln: (vm, nachricht)
+        "config": [],
+        "storage_before": [],
+        "storage_after": [],
+        "directory_listing": []
     }
-    in_listing, in_storage_before, in_storage_after, in_config, in_detailed = (False, False, False, False, False)
+    in_listing = False
+    in_storage_before = False
+    in_storage_after = False
+    in_config = False
     current_vm = "Allgemein"
     is_detailed_log = False
 
@@ -61,92 +67,127 @@ def create_summary(log_content):
         s = line.strip()
         s_lower = s.lower()
 
-        # --- Parsing Logik ---
+        # --- Universelles Parsing für beide Log-Typen ---
+
+        # Finalstatus (sehr robust)
         if "final status:" in s_lower:
-            summary["status"] = s[s_lower.find("final status:") + len("final status:"):].replace("#", "").strip()
+            summary["status"] = s.split(":", 1)[-1].replace("#", "").strip()
             continue
+
+        # Dauer (sehr robust)
         if "backup duration:" in s_lower:
-            summary["duration"] = s[s_lower.find("backup duration:") + len("backup duration:"):].strip()
+            summary["duration"] = s.split(":", 1)[-1].strip()
             continue
+
+        # VM Start (sehr robust)
         if "initiate backup for" in s_lower:
             vm = s[s_lower.find("initiate backup for") + len("initiate backup for"):].strip()
             current_vm = vm
             if vm and vm not in summary["vms_processed"]:
                 summary["vms_processed"].append(vm)
             continue
-
-        if ("warn:" in s_lower or "warning:" in s_lower) and "permanently added" not in s_lower:
-            find_str = "warning:" if "warning:" in s_lower else "warn:"
-            msg = s[s_lower.find(find_str) + len(find_str):].strip()
-            vm_context = current_vm
-            if msg.startswith("[") and "]" in msg:
-                vm_context = msg.split(']')[0][1:]; msg = msg.split('] - ', 1)[-1]
-            summary["warnings"].append((vm_context, msg))
-            continue
         
-        if "error:" in s_lower:
-            msg = s[s_lower.find("error:") + len("error:"):].strip()
+        # Fehler und Warnungen (robust)
+        if s_lower.startswith("error:") or " error: " in s_lower:
+            msg = s.split(":", 1)[-1].strip()
             vm_context = current_vm
             if msg.startswith("[") and "]" in msg:
-                vm_context = msg.split(']')[0][1:]; msg = msg.split('] - ', 1)[-1]
+                vm_context = msg.split(']')[0][1:]
+                msg = msg.split('] - ', 1)[-1]
             summary["errors"].append((vm_context, msg))
             continue
-            
-        # Sektions-Parser für detaillierte Logs
+        if s_lower.startswith("warn:") or s_lower.startswith("warning:"):
+            msg = s.split(":", 1)[-1].strip()
+            vm_context = current_vm
+            if msg.startswith("[") and "]" in msg:
+                vm_context = msg.split(']')[0][1:]
+                msg = msg.split('] - ', 1)[-1]
+            summary["warnings"].append((vm_context, msg))
+            continue
+
+        # --- Parsing nur für detaillierte Replikations-Logs ---
+
+        # Job-Details
         if s.startswith("Startzeit:"):
-            summary["start_time"] = s.split(":", 1)[-1].strip(); is_detailed_log = True; continue
+            summary["start_time"] = s.split(":", 1)[-1].strip()
+            is_detailed_log = True
+            continue
         if s.startswith("Endzeit:"):
-            summary["end_time"] = s.split(":", 1)[-1].strip(); is_detailed_log = True; continue
-            
-        if s.startswith("Job-Konfiguration:"): in_config = True; continue
-        if s.startswith("Speicherplatz (Vorher):"): in_config = False; in_storage_before = True; continue
-        if s.startswith("Speicherplatz (Nachher):"): in_storage_before = False; in_storage_after = True; continue
-        if s.startswith("--- START DES DETAILLOGS ---"): in_config=in_storage_before=in_storage_after=False; in_detailed = True; continue
-        if s.startswith("--- ENDE DES DETAILLOGS ---"): in_detailed = False; continue
-        if s.startswith("--- START Backup Directory Listing ---"): in_detailed = False; in_listing = True; continue
-        if s.startswith("--- END Backup Directory Listing ---"): in_listing = False; continue
+            summary["end_time"] = s.split(":", 1)[-1].strip()
+            is_detailed_log = True
+            continue
+
+        # Sektions-Parser
+        if s.startswith("Job-Konfiguration:"):
+            in_config = True; is_detailed_log = True; continue
+        if s.startswith("Speicherplatz (Vorher):"):
+            in_config = False; in_storage_before = True; is_detailed_log = True; continue
+        if s.startswith("Speicherplatz (Nachher):"):
+            in_storage_before = False; in_storage_after = True; is_detailed_log = True; continue
+        if "###" in s and "Starte Verarbeitung für VM:" in s:
+             in_config = in_storage_before = in_storage_after = False
 
         if in_config: summary["config"].append(s); continue
         if in_storage_before: summary["storage_before"].append(s); continue
         if in_storage_after: summary["storage_after"].append(s); continue
-        if in_listing: summary["directory_listing"].append(line); continue
-        if in_detailed: summary["detailed_log"].append(line); continue
+
+        # Directory Listing
+        if "--- START Backup Directory Listing ---" in s:
+            in_listing = True; continue
+        if "--- END Backup Directory Listing ---" in s:
+            in_listing = False; continue
+        if in_listing:
+            summary["directory_listing"].append(line)
 
     # --- HTML-Erstellung ---
-    if "OK" in summary["status"]: status_color = "#28a745"
-    else: status_color = "#dc3545"
+    if "OK" in summary["status"]:
+        status_color = "#28a745"
+    else:
+        status_color = "#dc3545"
 
     parts = []
     parts.append(
         "<html><head><meta charset='utf-8'>"
         "<style>"
-        "body{font-family:Arial,sans-serif;font-size:14px; margin:15px;}"
-        "h2,h3,h4{color:#333} pre{font-family:monospace;background:#f8f8f8;padding:10px;border:1px solid #ddd;border-radius:4px;white-space:pre-wrap;word-wrap:break-word}"
-        "ul{list-style-type:none;padding-left:0} li{margin-bottom:5px} li ul{margin-top:5px;margin-left:20px;list-style-type:circle}"
-        ".error-vm{color:#b00020;font-weight:bold} .warn-vm{color:#b06a00;font-weight:bold}"
+        "body{font-family:Arial,Helvetica,sans-serif;font-size:14px; margin: 15px;}"
+        "h2, h3, h4 {color: #333;}"
+        "pre{font-family:monospace;background:#f8f8f8;padding:10px;border:1px solid #ddd;border-radius:4px;white-space:pre-wrap;word-wrap:break-word;}"
+        "ul{list-style-type: none; padding-left: 0;}"
+        "li {margin-bottom: 5px;}"
+        "li ul {margin-top: 5px; margin-left: 20px; list-style-type: circle;}"
+        ".error-vm{color:#b00020;font-weight:bold}"
+        ".warn-vm{color:#b06a00;font-weight:bold}"
         "</style></head><body>"
     )
     
     parts.append('<h2 style="color: %s;">Backup-Zusammenfassung</h2><hr>' % status_color)
     status_html = '<span style="color: %s; font-weight: bold;">%s</span>' % (status_color, html_escape(summary["status"]))
     
+    # Entscheide, welches Layout verwendet wird
     if is_detailed_log:
         parts.append('<p><b>Status:</b> %s</p>' % status_html)
         parts.append("<h4>Job-Details:</h4><ul>")
         parts.append("<li><b>Startzeit:</b> %s</li>" % html_escape(summary["start_time"]))
-        parts.append("<li><b>Endzeit:</b> %s</li>" % (html_escape(summary["end_time"]) if summary["end_time"] != "N/A" else "<em>Job nicht beendet</em>"))
+        parts.append("<li><b>Endzeit:</b> %s</li>" % html_escape(summary["end_time"]))
         parts.append("<li><b>Dauer:</b> %s</li>" % html_escape(summary["duration"]))
         parts.append("</ul>")
+
         if summary["config"]:
-            parts.append("<h4>Konfiguration:</h4><ul>%s</ul>" % "".join("<li>%s</li>" % html_escape(i) for i in summary["config"]))
+            parts.append("<h4>Konfiguration:</h4><ul>")
+            for item in summary["config"]:
+                parts.append("<li>%s</li>" % html_escape(item))
+            parts.append("</ul>")
+        
         if summary["storage_before"] or summary["storage_after"]:
             parts.append("<h4>Speicherplatz:</h4><pre>")
             if summary["storage_before"]:
-                parts.append("<b>Vor dem Job:</b>\n" + "\n".join(html_escape(s) for s in summary["storage_before"]))
+                parts.append("<b>Vor dem Job:</b>")
+                parts.append("\n".join(html_escape(s) for s in summary["storage_before"]))
             if summary["storage_after"]:
-                parts.append("\n<b>Nach dem Job:</b>\n" + "\n".join(html_escape(s) for s in summary["storage_after"]))
+                parts.append("\n<b>Nach dem Job:</b>")
+                parts.append("\n".join(html_escape(s) for s in summary["storage_after"]))
             parts.append("</pre>")
-    else:
+    else: # Einfaches Layout für Standard-Backups
         parts.append('<p><b>Status:</b> %s</p>' % status_html)
         parts.append("<p><b>Dauer:</b> %s</p>" % html_escape(summary["duration"]))
 
@@ -156,28 +197,31 @@ def create_summary(log_content):
         parts.append("<ul>%s</ul>" % "".join("<li>%s</li>" % html_escape(vm) for vm in summary["vms_processed"]))
     else:
         parts.append("<p>Keine.</p>")
-    
+
     parts.append("<h3>Warnungen (%d)</h3>" % len(summary["warnings"]))
     if summary["warnings"]:
-        parts.append("<ul>%s</ul>" % "".join('<li><strong class="warn-vm">VM: %s</strong><ul><li>%s</li></ul></li>' % (html_escape(vm), html_escape(msg)) for vm, msg in summary["warnings"]))
+        parts.append("<ul>")
+        for vm, msg in summary["warnings"]:
+            parts.append('<li><strong class="warn-vm">VM: %s</strong><ul><li>%s</li></ul></li>' % (html_escape(vm), html_escape(msg)))
+        parts.append("</ul>")
     else:
         parts.append("<p>Keine.</p>")
 
     parts.append("<h3>Fehler (%d)</h3>" % len(summary["errors"]))
     if summary["errors"]:
-        parts.append("<ul>%s</ul>" % "".join('<li><strong class="error-vm">VM: %s</strong><ul><li>%s</li></ul></li>' % (html_escape(vm), html_escape(msg)) for vm, msg in summary["errors"]))
+        parts.append("<ul>")
+        for vm, msg in summary["errors"]:
+            parts.append('<li><strong class="error-vm">VM: %s</strong><ul><li>%s</li></ul></li>' % (html_escape(vm), html_escape(msg)))
+        parts.append("</ul>")
     else:
         parts.append("<p>Keine.</p>")
 
     if summary["directory_listing"]:
-        parts.append("<hr><h3>Inhalt des Backup-Verzeichnisses</h3><pre>%s</pre>" % "\n".join(html_escape(x) for x in summary["directory_listing"]))
-    
-    if summary["detailed_log"]:
-        parts.append("<hr><h3>Detailliertes Prozess-Log</h3><pre>%s</pre>" % "\n".join(html_escape(x) for x in summary["detailed_log"]))
+        parts.append("<hr><h3>Inhalt des Backup-Verzeichnisses</h3>")
+        parts.append("<pre>%s</pre>" % "\n".join(html_escape(x) for x in summary["directory_listing"]))
 
     parts.append("</body></html>")
     return "\n".join(parts)
-
 
 def build_message(subject, html_body, to_csv, from_addr):
     """
