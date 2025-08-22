@@ -189,7 +189,7 @@ def create_summary(log_content):
         parts.append("<hr><h3>Detailliertes Prozess-Log</h3><pre>%s</pre>" % "\n".join(html_escape(x) for x in summary["detailed_log"]))
 
     parts.append("</body></html>")
-
+    
     # --- NEU: Prüfen, ob Fehler/Warnungen vorhanden sind ---
     is_high_priority = bool(summary["errors"] or summary["warnings"])
     
@@ -200,8 +200,6 @@ def create_summary(log_content):
 def build_message(subject, html_body, to_csv, from_addr, is_high_priority=False): # NEU: is_high_priority Parameter
     """
     Erzeugt die MIME-Nachricht als String.
-    - Mit email.mime (falls vorhanden) als multipart/HTML
-    - Ohne email.mime: minimaler Roh-MIME-String
     """
     try:
         body_decoded = html_body.decode('utf-8', 'replace') if isinstance(html_body, bytes) else html_body
@@ -221,7 +219,7 @@ def build_message(subject, html_body, to_csv, from_addr, is_high_priority=False)
                 msg['Date'] = formatdate(localtime=True)
             except Exception:
                 pass
-            
+
             # --- NEU: Header für hohe Priorität hinzufügen ---
             if is_high_priority:
                 msg['Importance'] = 'High'
@@ -233,7 +231,6 @@ def build_message(subject, html_body, to_csv, from_addr, is_high_priority=False)
         except Exception:
             pass
 
-    # Roh-MIME (für ESXi 6.0 ohne email.mime)
     date_hdr = time.strftime('%a, %d %b %Y %H:%M:%S +0000', time.gmtime())
     headers = [
         'From: %s' % from_addr,
@@ -241,7 +238,7 @@ def build_message(subject, html_body, to_csv, from_addr, is_high_priority=False)
         'Subject: %s' % subject,
         'Date: %s' % date_hdr,
     ]
-    
+
     # --- NEU: Header für hohe Priorität im Roh-Format hinzufügen ---
     if is_high_priority:
         headers.extend([
@@ -276,10 +273,11 @@ def _smtp_try_send(subject, html_body, to_csv, from_addr, host, port, user, pwd,
 
     # NEU: is_high_priority an build_message weitergeben
     raw = build_message(subject, html_body, to_csv, from_addr, is_high_priority)
-    
+
+    # WICHTIG: Python 3 Kompatibilitäts-Fix
     if sys.version_info[0] == 3:
         raw = raw.encode('utf-8')
-
+        
     server = None
     try:
         if tls_mode == 'ssl':
@@ -341,7 +339,7 @@ def _openssl_fallback(subject, html_body, to_csv, from_addr, host, port, user, p
 
     # NEU: is_high_priority an build_message weitergeben
     raw = build_message(subject, html_body, to_csv, from_addr, is_high_priority)
-
+    
     try:
         import base64 as b64mod
     except Exception:
