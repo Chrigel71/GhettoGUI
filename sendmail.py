@@ -189,10 +189,11 @@ def create_summary(log_content):
 
     parts.append("</body></html>")
     
+    # *** ANPASSUNG START: Priorität prüfen und zurückgeben ***
     is_high_priority = bool(summary["errors"] or summary["warnings"])
     return "\n".join(parts), is_high_priority
 
-# NEU: Parameter is_high_priority hinzugefügt
+# *** ANPASSUNG START: Parameter is_high_priority hinzugefügt ***
 def build_message(subject, html_body, to_csv, from_addr, is_high_priority=False):
     """
     Erzeugt die MIME-Nachricht als String.
@@ -216,11 +217,12 @@ def build_message(subject, html_body, to_csv, from_addr, is_high_priority=False)
             except Exception:
                 pass
             
+            # Wenn Priorität hoch ist, Header hinzufügen
             if is_high_priority:
                 msg['Importance'] = 'High'
                 msg['X-Priority'] = '1 (Highest)'
                 msg['X-MSMail-Priority'] = 'High'
-
+                
             msg.attach(MIMEText(body_decoded, 'html', 'utf-8'))
             return msg.as_string()
         except Exception:
@@ -233,7 +235,8 @@ def build_message(subject, html_body, to_csv, from_addr, is_high_priority=False)
         'Subject: %s' % subject,
         'Date: %s' % date_hdr,
     ]
-
+    
+    # Wenn Priorität hoch ist, Header hinzufügen
     if is_high_priority:
         headers.extend([
             'Importance: High',
@@ -258,7 +261,7 @@ def _split_recipients(to_str):
     return [chunk.strip() for chunk in s.split() if chunk.strip()]
 
 
-# NEU: Parameter is_high_priority hinzugefügt
+# *** ANPASSUNG START: Parameter is_high_priority hinzugefügt ***
 def _smtp_try_send(subject, html_body, to_csv, from_addr, host, port, user, pwd,
                    tls_mode, auth_mode, is_high_priority=False):
     if smtplib is None:
@@ -267,7 +270,7 @@ def _smtp_try_send(subject, html_body, to_csv, from_addr, host, port, user, pwd,
 
     raw = build_message(subject, html_body, to_csv, from_addr, is_high_priority)
     
-    # WICHTIG: Python 3 Kompatibilitäts-Fix
+    # WICHTIG: Notwendiger Fix für Python 3 auf ESXi 8+
     if sys.version_info[0] == 3:
         raw = raw.encode('utf-8')
 
@@ -311,7 +314,7 @@ def _smtp_try_send(subject, html_body, to_csv, from_addr, host, port, user, pwd,
         return False
 
 
-# NEU: Parameter is_high_priority hinzugefügt
+# *** ANPASSUNG START: Parameter is_high_priority hinzugefügt ***
 def _openssl_fallback(subject, html_body, to_csv, from_addr, host, port, user, pwd,
                       tls_mode, auth_mode, is_high_priority=False):
     recipients = _split_recipients(to_csv)
@@ -376,7 +379,7 @@ def _openssl_fallback(subject, html_body, to_csv, from_addr, host, port, user, p
     return True
 
 
-# NEU: Parameter is_high_priority hinzugefügt
+# *** ANPASSUNG START: Parameter is_high_priority hinzugefügt ***
 def send_email(subject, body, to_addr, from_addr, smtp_server, smtp_port_str, user, password,
                tls_mode, auth_mode, is_high_priority=False, openssl_fallback=True):
     try:
@@ -426,11 +429,11 @@ if __name__ == '__main__':
         sys.stderr.write("ERROR: Failed to read message file %s: %s\n" % (args.message_file, str(e)))
         sys.exit(1)
 
-    # NEU: Zwei Werte von create_summary empfangen
+    # *** ANPASSUNG START: Zwei Werte von create_summary empfangen ***
     email_body, is_high_priority = create_summary(log_content)
 
     openssl_fb = (not args.no_openssl_fallback)
-    # NEU: is_high_priority an send_email übergeben
+    # *** ANPASSUNG START: is_high_priority an send_email übergeben ***
     send_email(args.subject, email_body, recipients_str, args.sender,
                args.server, args.port, args.username, args.password,
                tls_mode=args.tls, auth_mode=args.auth,
