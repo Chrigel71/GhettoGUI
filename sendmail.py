@@ -104,7 +104,6 @@ def create_summary(log_content):
         if s.startswith("--- START DES DETAILLOGS ---"): in_config=in_storage_before=in_storage_after=False; in_detailed = True; continue
         if s.startswith("--- ENDE DES DETAILLOGS ---"): in_detailed = False; continue
         
-        # +++ KORRIGIERTE ZEILE +++
         if s.startswith("--- START Backup Directory Listing ---"): in_detailed = False; in_storage_after = False; in_listing = True; continue
         if s.startswith("--- END Backup Directory Listing ---"): in_listing = False; continue
 
@@ -114,7 +113,7 @@ def create_summary(log_content):
         if in_listing: summary["directory_listing"].append(line); continue
         if in_detailed: summary["detailed_log"].append(line); continue
 
-    # --- HTML-Erstellung ---
+    # --- HTML-Erstellung (NEUE REIHENFOLGE) ---
     if "OK" in summary["status"]: status_color = "#28a745"
     else: status_color = "#dc3545"
 
@@ -132,6 +131,7 @@ def create_summary(log_content):
     parts.append('<h2 style="color: %s;">Backup-Zusammenfassung</h2><hr>' % status_color)
     status_html = '<span style="color: %s; font-weight: bold;">%s</span>' % (status_color, html_escape(summary["status"]))
     
+    # Block 1: Status und Job-Details (oder Dauer)
     if is_detailed_log:
         parts.append('<p><b>Status:</b> %s</p>' % status_html)
         parts.append("<h4>Job-Details:</h4><ul>")
@@ -139,20 +139,13 @@ def create_summary(log_content):
         parts.append("<li><b>Endzeit:</b> %s</li>" % (html_escape(summary["end_time"]) if summary["end_time"] != "N/A" else "<em>Job nicht beendet</em>"))
         parts.append("<li><b>Dauer:</b> %s</li>" % html_escape(summary["duration"]))
         parts.append("</ul>")
-        if summary["config"]:
-            parts.append("<h4>Konfiguration:</h4><ul>%s</ul>" % "".join("<li>%s</li>" % html_escape(i) for i in summary["config"]))
-        if summary["storage_before"] or summary["storage_after"]:
-            parts.append("<h4>Speicherplatz:</h4><pre>")
-            if summary["storage_before"]:
-                parts.append("<b>Vor dem Job:</b>\n" + "\n".join(html_escape(s) for s in summary["storage_before"]))
-            if summary["storage_after"]:
-                parts.append("\n<b>Nach dem Job:</b>\n" + "\n".join(html_escape(s) for s in summary["storage_after"]))
-            parts.append("</pre>")
     else:
         parts.append('<p><b>Status:</b> %s</p>' % status_html)
         parts.append("<p><b>Dauer:</b> %s</p>" % html_escape(summary["duration"]))
 
     parts.append("<hr>")
+    
+    # Block 2: Ergebnisse (VMs, Warnungen, Fehler)
     parts.append("<h3>Verarbeitete VMs (%d)</h3>" % len(summary["vms_processed"]))
     if summary["vms_processed"]:
         parts.append("<ul>%s</ul>" % "".join("<li>%s</li>" % html_escape(vm) for vm in summary["vms_processed"]))
@@ -170,7 +163,20 @@ def create_summary(log_content):
         parts.append("<ul>%s</ul>" % "".join('<li><strong class="error-vm">VM: %s</strong><ul><li>%s</li></ul></li>' % (html_escape(vm), html_escape(msg)) for vm, msg in summary["errors"]))
     else:
         parts.append("<p>Keine.</p>")
+        
+    # Block 3: Konfiguration und Speicherplatz (nur bei detaillierten Logs)
+    if is_detailed_log:
+        if summary["config"]:
+            parts.append("<hr><h4>Konfiguration:</h4><ul>%s</ul>" % "".join("<li>%s</li>" % html_escape(i) for i in summary["config"]))
+        if summary["storage_before"] or summary["storage_after"]:
+            parts.append("<h4>Speicherplatz:</h4><pre>")
+            if summary["storage_before"]:
+                parts.append("<b>Vor dem Job:</b>\n" + "\n".join(html_escape(s) for s in summary["storage_before"]))
+            if summary["storage_after"]:
+                parts.append("\n<b>Nach dem Job:</b>\n" + "\n".join(html_escape(s) for s in summary["storage_after"]))
+            parts.append("</pre>")
 
+    # Block 4: Logs (immer am Ende)
     if summary["directory_listing"]:
         parts.append("<hr><h3>Inhalt des Backup-Verzeichnisses</h3><pre>%s</pre>" % "\n".join(html_escape(x) for x in summary["directory_listing"]))
     
@@ -179,7 +185,6 @@ def create_summary(log_content):
 
     parts.append("</body></html>")
     return "\n".join(parts)
-
 
 def build_message(subject, html_body, to_csv, from_addr):
     """
