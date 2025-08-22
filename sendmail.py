@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# GhettoVCB-GUI Sendmail (ESXi 6.0–8.x kompatibel)
+# GhettoVCB-GUI Sendmail (ESXi 6.0–8.03 kompatibel)
 # - smtplib/email.mime optional (ESXi 6.0 hat teils "gestripptes" Python)
 # - Automatischer Fallback via `openssl s_client` (oder `nc` bei TLS=none)
 # - Empfänger: komma- ODER semikolon-getrennt
+# - NEU: Setzt E-Mail-Priorität auf "Hoch" bei Fehlern oder Warnungen
 
 from __future__ import print_function
 
@@ -43,8 +44,8 @@ def html_escape(text):
 
 def create_summary(log_content):
     """
-    Erzeugt eine universelle HTML-Zusammenfassung.
-    Kann sowohl einfache Backup-Logs als auch detaillierte Replikations-Logs verarbeiten.
+    Erzeugt eine universelle HTML-Zusammenfassung und prüft auf Fehler/Warnungen.
+    Gibt (html_body, is_important) zurück.
     """
     summary = {
         "status": "Unbekannt", "duration": "N/A", "start_time": "N/A", "end_time": "N/A",
@@ -189,14 +190,14 @@ def create_summary(log_content):
 
     parts.append("</body></html>")
     
-    # *** ANPASSUNG START: Priorität prüfen und zurückgeben ***
-    is_high_priority = bool(summary["errors"] or summary["warnings"])
-    return "\n".join(parts), is_high_priority
+    is_important = len(summary["errors"]) > 0 or len(summary["warnings"]) > 0
+    return "\n".join(parts), is_important
 
-# *** ANPASSUNG START: Parameter is_high_priority hinzugefügt ***
-def build_message(subject, html_body, to_csv, from_addr, is_high_priority=False):
+def build_message(subject, html_body, to_csv, from_addr, is_important=False):
     """
     Erzeugt die MIME-Nachricht als String.
+    - Mit email.mime (falls vorhanden) als multipart/HTML
+    - Ohne email.mime: minimaler Roh-MIME-String
     """
     try:
         body_decoded = html_body.decode('utf-8', 'replace') if isinstance(html_body, bytes) else html_body
@@ -217,10 +218,9 @@ def build_message(subject, html_body, to_csv, from_addr, is_high_priority=False)
             except Exception:
                 pass
             
-            # Wenn Priorität hoch ist, Header hinzufügen
-            if is_high_priority:
-                msg['Importance'] = 'High'
-                msg['X-Priority'] = '1 (Highest)'
+            if is_important:
+                msg['Importance'] = 'high'
+                msg['X-Priority'] = '1'
                 msg['X-MSMail-Priority'] = 'High'
                 
             msg.attach(MIMEText(body_decoded, 'html', 'utf-8'))
@@ -235,15 +235,11 @@ def build_message(subject, html_body, to_csv, from_addr, is_high_priority=False)
         'Subject: %s' % subject,
         'Date: %s' % date_hdr,
     ]
-    
-    # Wenn Priorität hoch ist, Header hinzufügen
-    if is_high_priority:
-        headers.extend([
-            'Importance: High',
-            'X-Priority: 1 (Highest)',
-            'X-MSMail-Priority: High'
-        ])
-
+    if is_important:
+        headers.append('Importance: high')
+        headers.append('X-Priority: 1')
+        headers.append('X-MSMail-Priority: High')
+        
     headers.extend([
         'MIME-Version: 1.0',
         'Content-Type: text/html; charset=utf-8',
@@ -261,19 +257,13 @@ def _split_recipients(to_str):
     return [chunk.strip() for chunk in s.split() if chunk.strip()]
 
 
-# *** ANPASSUNG START: Parameter is_high_priority hinzugefügt ***
 def _smtp_try_send(subject, html_body, to_csv, from_addr, host, port, user, pwd,
-                   tls_mode, auth_mode, is_high_priority=False):
+                   tls_mode, auth_mode, is_important=False):
     if smtplib is None:
         sys.stderr.write("WARN: smtplib not available on this host; skipping smtplib path\n")
         return False
 
-    raw = build_message(subject, html_body, to_csv, from_addr, is_high_priority)
-    
-    # WICHTIG: Notwendiger Fix für Python 3 auf ESXi 8+
-    if sys.version_info[0] == 3:
-        raw = raw.encode('utf-8')
-
+    raw = build_message(subject, html_body, to_csv, from_addr, is_important)
     server = None
     try:
         if tls_mode == 'ssl':
@@ -296,11 +286,11 @@ def _smtp_try_send(subject, html_body, to_csv, from_addr, host, port, user, pwd,
                     except Exception: pass
                 elif tls_mode == 'starttls':
                     raise RuntimeError("Server does not support STARTTLS.")
-
-        do_auth = bool(user and pwd)
+        do_auth = False
+        if auth_mode == 'none': do_auth = False
+        elif auth_mode in ('auto', 'login', 'plain'): do_auth = bool(user and pwd)
         if do_auth:
             server.login(user, pwd)
-
         server.sendmail(from_addr, _split_recipients(to_csv), raw)
         try: server.quit()
         except Exception: pass
@@ -314,36 +304,43 @@ def _smtp_try_send(subject, html_body, to_csv, from_addr, host, port, user, pwd,
         return False
 
 
-# *** ANPASSUNG START: Parameter is_high_priority hinzugefügt ***
 def _openssl_fallback(subject, html_body, to_csv, from_addr, host, port, user, pwd,
-                      tls_mode, auth_mode, is_high_priority=False):
+                      tls_mode, auth_mode, is_important=False):
     recipients = _split_recipients(to_csv)
     if not recipients:
         raise RuntimeError("No recipients.")
 
-    raw = build_message(subject, html_body, to_csv, from_addr, is_high_priority)
+    raw = build_message(subject, html_body, to_csv, from_addr, is_important)
 
-    try:
-        import base64 as b64mod
-    except Exception:
-        b64mod = None
+    try: import base64 as b64mod
+    except Exception: b64mod = None
+
     def b64(s):
         if b64mod is None: raise RuntimeError("No base64 available for AUTH.")
         if not isinstance(s, _basestr): s = str(s)
         out = b64mod.b64encode(s.encode('utf-8'))
         try: return out.decode('ascii')
         except Exception: return out
+
     ehlo = (socket.gethostname().split('.')[0] or 'esxi')
     lines = ["EHLO %s\r\n" % ehlo]
-    do_auth = bool(user and pwd)
+    
+    do_auth = False
+    if auth_mode == 'none': do_auth = False
+    elif auth_mode in ('auto', 'login', 'plain'): do_auth = bool(user and pwd)
+
     if do_auth:
         if auth_mode in ('auto', 'login'):
-            lines.extend(["AUTH LOGIN\r\n", "%s\r\n" % b64(user), "%s\r\n" % b64(pwd)])
+            lines.append("AUTH LOGIN\r\n")
+            lines.append("%s\r\n" % b64(user))
+            lines.append("%s\r\n" % b64(pwd))
         elif auth_mode == 'plain':
             payload = "\0%s\0%s" % (user, pwd)
             lines.append("AUTH PLAIN %s\r\n" % b64(payload))
+
     lines.append("MAIL FROM:<%s>\r\n" % from_addr)
-    for r in recipients: lines.append("RCPT TO:<%s>\r\n" % r)
+    for r in recipients:
+        lines.append("RCPT TO:<%s>\r\n" % r)
     lines.append("DATA\r\n")
     if isinstance(raw, _basestr):
         body_crlf = raw.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "\r\n")
@@ -353,35 +350,41 @@ def _openssl_fallback(subject, html_body, to_csv, from_addr, host, port, user, p
         body_crlf = raw_s.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "\r\n")
     lines.append(body_crlf + "\r\n.\r\n")
     lines.append("QUIT\r\n")
+
     def run_cmd(cmd, payload_bytes):
         try:
             p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            out, err = p.communicate(payload_bytes)
-            rc = p.returncode
-            if rc != 0:
-                raise RuntimeError("openssl/nc failed (rc=%s): %s" % (rc, (err or b'').decode('utf-8', 'ignore')))
         except OSError as oe:
             raise RuntimeError("Cannot exec %s: %s" % (" ".join(cmd), str(oe)))
+        out, err = p.communicate(payload_bytes)
+        rc = p.returncode
+        if rc != 0:
+            raise RuntimeError("openssl/nc failed (rc=%s): %s" % (rc, (err or b'').decode('utf-8', 'ignore')))
+        return out, err
+
     payload = "".join(lines)
-    try:
-        payload_bytes = payload.encode('utf-8')
-    except Exception:
-        payload_bytes = bytes(payload)
+    try: payload_bytes = payload.encode('utf-8')
+    except Exception: payload_bytes = bytes(payload)
+
     tls_mode = (tls_mode or 'auto').lower()
     if tls_mode == 'none':
         cmd = ['nc', host, str(port)]
-    elif tls_mode == 'ssl':
-        cmd = ['openssl', 's_client', '-quiet', '-crlf', '-connect', '%s:%s' % (host, port)]
-    else: # auto, starttls
-        cmd = ['openssl', 's_client', '-quiet', '-crlf', '-starttls', 'smtp', '-connect', '%s:%s' % (host, port)]
-    run_cmd(cmd, payload_bytes)
+        run_cmd(cmd, payload_bytes)
+    else:
+        if tls_mode in ('auto', 'starttls'):
+            cmd = ['openssl', 's_client', '-quiet', '-crlf', '-starttls', 'smtp', '-connect', '%s:%s' % (host, port)]
+        elif tls_mode == 'ssl':
+            cmd = ['openssl', 's_client', '-quiet', '-crlf', '-connect', '%s:%s' % (host, port)]
+        else:
+            cmd = ['openssl', 's_client', '-quiet', '-crlf', '-starttls', 'smtp', '-connect', '%s:%s' % (host, port)]
+        run_cmd(cmd, payload_bytes)
+
     sys.stdout.write("INFO: Email successfully sent to %s (openssl fallback)\n" % to_csv)
     return True
 
 
-# *** ANPASSUNG START: Parameter is_high_priority hinzugefügt ***
 def send_email(subject, body, to_addr, from_addr, smtp_server, smtp_port_str, user, password,
-               tls_mode, auth_mode, is_high_priority=False, openssl_fallback=True):
+               tls_mode, auth_mode, openssl_fallback=True, is_important=False):
     try:
         smtp_port = int(smtp_port_str)
     except Exception:
@@ -389,14 +392,14 @@ def send_email(subject, body, to_addr, from_addr, smtp_server, smtp_port_str, us
         return
 
     ok = _smtp_try_send(subject, body, to_addr, from_addr, smtp_server, smtp_port,
-                        user, password, tls_mode, auth_mode, is_high_priority)
+                        user, password, tls_mode, auth_mode, is_important)
     if ok:
         return
 
     if openssl_fallback:
         try:
             _openssl_fallback(subject, body, to_addr, from_addr, smtp_server, smtp_port,
-                              user, password, tls_mode, auth_mode, is_high_priority)
+                              user, password, tls_mode, auth_mode, is_important)
             return
         except Exception as e:
             sys.stderr.write("ERROR: OpenSSL fallback failed: %s\n" % str(e))
@@ -429,12 +432,9 @@ if __name__ == '__main__':
         sys.stderr.write("ERROR: Failed to read message file %s: %s\n" % (args.message_file, str(e)))
         sys.exit(1)
 
-    # *** ANPASSUNG START: Zwei Werte von create_summary empfangen ***
-    email_body, is_high_priority = create_summary(log_content)
+    email_body, is_important = create_summary(log_content)
 
     openssl_fb = (not args.no_openssl_fallback)
-    # *** ANPASSUNG START: is_high_priority an send_email übergeben ***
     send_email(args.subject, email_body, recipients_str, args.sender,
                args.server, args.port, args.username, args.password,
-               tls_mode=args.tls, auth_mode=args.auth,
-               is_high_priority=is_high_priority, openssl_fallback=openssl_fb)
+               tls_mode=args.tls, auth_mode=args.auth, openssl_fallback=openssl_fb, is_important=is_important)
