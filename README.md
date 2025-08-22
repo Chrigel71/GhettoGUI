@@ -35,97 +35,67 @@ Ein PowerShell-basiertes GUI-Tool zur umfassenden Verwaltung von `ghettoVCB.sh` 
 
 ---
 
-## Bedienungsanleitung
+## Bedienungsanleitung & Button-Referenz
 
-### Bereich 1: Verbindung & Hauptkonfiguration
+### Bereich 1: Verbindung & Hauptkonfiguration (Oben links)
 
-Dieser Bereich (oben links) ist der Ausgangspunkt für alles.
-
-* **ESXi Host IP / Username:** Geben Sie hier die Daten Ihres Quell-Hosts ein.
-* **Verbinden:** Baut die SSH-Verbindung zum Host auf. Sie werden zur Passworteingabe aufgefordert.
-* **Trennen:** Schliesst alle aktiven SSH-Verbindungen sauber.
-* **Posh-SSH prüfen / Version anzeigen:** Zeigt Diagnose-Infos zu Ihrer PowerShell- und Posh-SSH-Version an.
+* **ESXi Host IP / Username:** Felder zur Eingabe der Verbindungsdaten für den primären ESXi-Host (Quell-Host).
+* **Verbinden:** Baut eine SSH-Verbindung zum eingetragenen Host auf. Fordert zur Passworteingabe auf und aktiviert nach Erfolg die meisten anderen GUI-Funktionen.
+* **Trennen:** Schliesst alle aktiven SSH-Verbindungen (zum Quell-, Ziel- und Konsolen-Host) und setzt die GUI zurück.
+* **Posh-SSH prüfen / Version anzeigen:** Öffnet ein Diagnosefenster, das die installierten Versionen von PowerShell und dem Posh-SSH-Modul anzeigt. Nützlich zur Fehlersuche.
 
 ### Bereich 2: GhettoVCB Konfiguration (Backup-Einstellungen)
 
-Hier konfigurieren Sie die Details für **Standard-Backups**.
+Hier werden die Einstellungen für **Standard-Backups** (nicht Replikationen) vorgenommen. Diese werden in der `ghettoVCB.conf` auf dem Host gespeichert.
 
-* **GhettoVCB-Pfad:** Der Ordner auf dem ESXi-Host, in dem die Skripte (`ghettoVCB.sh`, `sendmail.py`) liegen sollen. Der "..."-Button hilft bei der Auswahl eines Datastores.
-* **Backup Volume:** Der Datastore, auf dem die Backups gespeichert werden sollen.
-* **Unterordner:** Ein optionaler Unterordner innerhalb des Backup Volumes.
-* **Rotation Count:** Anzahl der aufzubewahrenden Backups pro VM.
-* **Festes Backup-Ziel:** Wenn aktiviert, wird immer in denselben Ordner geschrieben und die alte Sicherung überschrieben (keine Datumsstempel im Ordnernamen).
-* **Disk Format:** Das Format der Backup-Festplatten (`thin`, `zeroedthick`, etc.).
-* **Snap Memory / Snap Quiesce:** Optionen für die Snapshot-Erstellung.
-* **VMs laden:** Lädt die Liste aller VMs vom verbundenen Host in das untere Auswahlfeld.
-* **Auswahl übernehmen:** Überträgt die Namen der angehakten VMs in das Textfeld "VMs (eine pro Zeile)".
-* **Einst. Host laden/speichern:** Speichert oder lädt alle Einstellungen der GUI (inkl. Replikation und E-Mail) in eine `.json`-Datei im Skript-Verzeichnis. Nützlich, wenn Sie mehrere Hosts verwalten.
-* **Ghetto-Konfig. auf ESXi speichern:** Speichert die hier gemachten Einstellungen in der `ghettoVCB.conf` auf dem ESXi-Host. **Dies muss vor dem Starten eines Backups immer getan werden!**
+* `GhettoVCB-Pfad`: **Wichtig!** Das Stammverzeichnis auf einem Datastore, in dem die GhettoVCB-Skripte liegen und Log-Dateien erstellt werden (z.B. `/vmfs/volumes/datastore1/ghettoVCB`). Der **"..."**-Button öffnet einen Dialog zur Auswahl eines Datastores.
+* `Backup Volume`: Der Datastore, auf dem die Backup-Ordner erstellt werden sollen.
+* `Unterordner`: Optionaler Unterordner im "Backup Volume" zur besseren Organisation.
+* `Rotation Count`: Wie viele alte Backups pro VM aufbewahrt werden sollen, bevor das älteste gelöscht wird.
+* `Festes Backup-Ziel`: Wenn aktiv, wird kein Datums-Unterordner erstellt. Jedes Backup überschreibt das vorherige am selben Ort. Nützlich für z.B. Snapshots auf SAN-Ebene.
+* `Disk Format`: Wählt das Format der virtuellen Festplatten im Backup (z.B. `thin` für platzsparend).
+* `Snap Memory / Snap Quiesce`: Optionen für die Snapshot-Erstellung. `Quiesce` erfordert VMware Tools und sorgt für anwendungskonsistente Snapshots.
+* **VMs laden:** Füllt die untere Liste mit allen auf dem Host registrierten VMs.
+* **Auswahl übernehmen:** Überträgt die Namen der in der Liste angehakten VMs in das darüberliegende Textfeld. Nur VMs in diesem Textfeld werden gesichert.
+* **Einst. Host laden/speichern:** Diese Buttons speichern oder laden **alle Einstellungen der gesamten GUI** (Backup, Replikation, E-Mail etc.) in/aus einer `hostname.ghetto.json`-Datei auf Ihrem PC. Perfekt, um Konfigurationen für verschiedene Hosts zu verwalten.
+* **Ghetto-Konfig. auf ESXi speichern:** Schreibt die Einstellungen aus diesem Bereich in die `ghettoVCB.conf`-Datei auf dem Host. **Muss vor jedem Backup-Lauf ausgeführt werden, wenn Änderungen gemacht wurden!**
 
 ### Bereich 3: Installation & Aktionen (Oben rechts)
 
-* **Offizielles GhettoVCB installieren:** Startet einen Dialog, um die Basisversion von ghettoVCB von GitHub oder einer lokalen ZIP-Datei zu installieren.
-* **GhettoVCB Patch:** Installiert unser angepasstes `ghettoVCB_patch.sh`-Skript. Dies ist für die erweiterten Logging-Funktionen **erforderlich**.
-* **E-Mail-Skript installieren:** Installiert unsere angepasste `sendmail.py`, die für die detaillierten HTML-Berichte benötigt wird.
-* **SSH-Konsole:** Öffnet das leistungsstarke Dual-Pane-SSH-Fenster.
+* **Offizielles GhettoVCB installieren:** Lädt die offizielle Version von GitHub oder einer lokalen ZIP-Datei herunter, entpackt sie und legt sie im angegebenen "GhettoVCB-Pfad" ab.
+* **GhettoVCB Patch:** Installiert unser angepasstes `ghettoVCB_patch.sh`-Skript, das für die erweiterten Logging-Funktionen für die E-Mail-Berichte **erforderlich** ist.
+* **E-Mail-Skript installieren:** Installiert unsere angepasste `sendmail.py`, die für die detaillierten, farbigen HTML-Berichte benötigt wird.
+* **SSH-Konsole:** Öffnet das Dual-Pane SSH-Fenster für erweiterte Verwaltungsaufgaben.
 
-### Bereich 4: Zeitplanung
+### Integrierte SSH-Konsole
 
-Hier konfigurieren Sie Cron-Jobs für automatisierte Aufgaben.
+Ein mächtiges Werkzeug zur direkten Verwaltung und Einrichtung.
 
-* **Uhrzeit / Tage:** Legen Sie den Ausführungszeitpunkt fest.
-* **Backup planen / Replikation planen:** Wählen Sie per Radio-Button, welche Aktion geplant werden soll.
-* **Zeitplan speichern:** Schreibt den entsprechenden Cron-Job in die `crontab` des ESXi-Hosts.
-
-### Bereich 5: E-Mail Benachrichtigung
-
-* **Checkbox "aktivieren":** Schaltet den E-Mail-Versand global an oder aus.
-* **Firewall-Check:** Erstellt automatisch die nötigen Firewall-Regeln auf dem ESXi-Host für ausgehenden SMTP- und SSH-Traffic.
-* **Email-Test:** Speichert die Konfiguration und sendet eine Test-E-Mail mit den aktuellen Einstellungen.
-* **Email-Log:** Durchsucht das letzte grosse Log nach E-Mail-relevanten Einträgen und zeigt eine gefilterte Zusammenfassung an.
-* **Felder (Empfänger, Server, etc.):** Konfigurieren Sie hier Ihre SMTP-Server-Daten.
-
-### Bereich 6: Backup-Aktionen
-
-* **Backup jetzt starten:** Startet einen manuellen Backup-Job mit den VMs aus der Textliste und den in der `ghettoVCB.conf` gespeicherten Einstellungen.
-* **Backup-Log abrufen:** Holt das letzte verfügbare Log (manuell oder geplant) und zeigt es im unteren Fenster an.
-* **Backup abbrechen:** Versucht, laufende Backup-Prozesse auf dem Host zu beenden.
-* **Backup-Ordner Inhalt:** Listet den Inhalt des konfigurierten Backup-Verzeichnisses auf.
-
----
-### Anleitung: Replikation im Detail
-
-#### A) Direkte Host-zu-Host Replikation (Blauer Button "Direkte Repl.")
-
-Diese Methode benötigt eine **passwortlose SSH-Verbindung** vom Quell- zum Ziel-Host. Richten Sie diese zuerst über die **SSH-Konsole** ein!
-
-1.  **Vorbereitung:** VMs in der Hauptliste auswählen.
-2.  **Dialog öffnen:** Auf **"Direkte Repl."** klicken.
-3.  **Ziel konfigurieren:**
-    * **Ziel-Host IP / Username:** Daten des Ziel-Hosts.
-    * **Zielspeicher:** Datastore auf dem Ziel-Host. Der "..."-Button verbindet sich temporär zum Ziel, um eine Liste abzurufen.
-    * **Suffix:** Text, der an den Namen der replizierten VM angehängt wird (z.B., `-Replica`).
-4.  **Temp-Speicher konfigurieren:**
-    * **Lokalen VM-Temp verwenden:** (Standard) Der temporäre Klon wird im selben Ordner wie die Quell-VM erstellt. Benötigt freien Platz auf dem Quell-Datastore.
-    * **Checkbox deaktivieren:** Erlaubt die Auswahl eines anderen Datastores auf dem **Quell-Host** als Zwischenspeicher. Ideal, wenn der Datastore der VM wenig freien Speicher hat.
-5.  **Replikationsmethode wählen:**
-    * **Repl. mit Temp (VM on):** Die VM bleibt online. Ein Snapshot wird erstellt, und aus diesem wird ein temporärer Klon erzeugt, der dann übertragen wird. Sicherste Methode.
-    * **Repl. Stream (VM off):** Die VM wird für die Dauer des Kopiervorgangs heruntergefahren. Es wird kein temporärer Klon benötigt, die Daten werden direkt gestreamt.
-6.  **Aktionen im Dialog:**
-    * **Einst. speichern:** Sichert die Einstellungen im Dialog in der `.json`-Datei, ohne ihn zu schliessen.
-    * **Replikation starten:** Startet den Job. Alle ausgewählten VMs werden nacheinander verarbeitet.
-    * **Abbrechen:** Schliesst den Dialog.
+* **Dual-Pane-Ansicht:** Links der Quell-Host, rechts der Ziel-Host. Jeder Bereich hat eigene Verbindungs-Buttons und eine Kommandozeile.
+* **Einrichtungs-Assistent (Host-zu-Host Setup):** Eine Schritt-für-Schritt-Anleitung zur Einrichtung der **passwortlosen SSH-Verbindung**, die für die direkte Replikation zwingend erforderlich ist.
+    * **1. Schlüssel & Transfer-Skript erstellen:** Generiert ein `.bat`-Skript auf Ihrem PC (`C:\temp\setup_keys.bat`). **Sie müssen dieses Skript manuell ausführen.** Es erstellt die SSH-Schlüssel und kopiert sie auf Ihre Hosts (fragt dabei nach den Passwörtern).
+    * **2. Berechtigungen setzen:** Nachdem Schritt 1 erfolgreich war, führt dieser Button die nötigen `chmod`-Befehle auf beiden Hosts aus, um die Schlüssel zu aktivieren.
+    * **3. Finalen Verbindungstest durchführen:** Führt einen Test-SSH-Befehl vom Quell- zum Ziel-Host aus. Wenn "ERFOLG!" erscheint, ist die Einrichtung abgeschlossen.
+    * **Verwaiste Replikationen bereinigen:** Ein "Notfall"-Button. Er beendet alle hängengebliebenen Replikations-Prozesse und löscht temporäre Dateien und Sperrdateien (`.lock`) auf dem Host.
+* **Geplante Tasks (Cron):**
+    * **Alle Tasks anzeigen:** Listet den Inhalt der Cron-Tabelle des Hosts mit Zeilennummern auf.
+    * **Cron Diagnose-Info abrufen:** Führt ein Diagnose-Skript aus, das den Status des Cron-Dienstes und die letzten Log-Einträge anzeigt.
+    * **Task-Nr. zum Löschen:** Geben Sie hier eine Zeilennummer aus der Liste ein, um einen spezifischen Job zu löschen.
+    * **Task löschen:** Löscht die ausgewählte Zeile.
+    * **Alle GhettoGUI Tasks löschen:** Entfernt alle Cron-Jobs, die von GhettoGUI erstellt wurden.
 
 ---
 
-## Sicherheit und Virenwarnung
+## Downloads & Sicherheit
 
-Das Programm ist virenfrei. Windows Defender kann aufgrund des Verhaltensmusters (Herunterladen von Dateien aus dem Internet, Aufbau von SSH-Verbindungen, Ausführen von Befehlen auf entfernten Systemen) einen Fehlalarm (Heuristik) auslösen. Dies ist normal für unsignierte Administrations-Tools. Fügen Sie bei Bedarf eine Ausnahme in Windows Defender für die Skript-Datei oder den Ordner hinzu.
+### Sicherheit und Virenwarnung
 
-## Haftungsausschluss
+Das Programm ist virenfrei. Windows Defender kann aufgrund des Verhaltensmusters (Herunterladen von Dateien, Aufbau von SSH-Verbindungen) einen Fehlalarm auslösen. Dies ist normal für unsignierte Administrations-Tools. Fügen Sie bei Bedarf eine Ausnahme für die Skript-Datei hinzu.
 
-Diese Software wird "wie besehen" ohne jegliche Gewährleistung bereitgestellt. Die Nutzung erfolgt auf eigene Gefahr. Der Autor übernimmt keine Haftung für Datenverlust oder andere Schäden.
+### Haftungsausschluss
 
-## Lizenz
+Diese Software wird "wie besehen" ohne Gewährleistung bereitgestellt. Die Nutzung erfolgt auf eigene Gefahr.
+
+### Lizenz
 
 Dieses GUI-Tool ist frei verfügbar. Das zugrundeliegende `ghettoVCB.sh`-Skript unterliegt der Lizenz seines ursprünglichen Autors, William Lam.
