@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-<title>GhettoVCB GUI - Manager V6.7.7 (22.08.2025)</title>
+<title>GhettoVCB GUI - Manager V6.8.3 (24.08.2025) by Chrigel#71</title>
 <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; line-height: 1.6; color: #333; max-width: 900px; margin: 20px auto; padding: 0 15px; }
     h1, h2, h3, h4 { color: #005a9c; border-bottom: 2px solid #eee; padding-bottom: 5px; }
@@ -21,7 +21,7 @@
 
 <body>
 
-<h1 id="ghettovcb-gui-manager-v6.7.7">GhettoVCB GUI - Manager V6.7.7 für ESXi 6.5 - 8.0</h1>
+<h1 id="ghettovcb-gui-manager-v6.8.3">GhettoVCB GUI - Manager V6.8.3 für ESXi 6.5 - 8.0</h1>
 <p>Ein PowerShell-basiertes GUI-Tool zur umfassenden Verwaltung von <code>ghettoVCB.sh</code> auf VMware ESXi-Hosts. Dieses Tool wurde entwickelt, um die Konfiguration, Installation, Ausführung und Überwachung von Backups und Replikationen mit <code>ghettoVCB</code> drastisch zu vereinfachen und eine intuitive, zentrale Steuerungsoberfläche zu bieten.</p>
 
 <h2 id="features">Features im Überblick</h2>
@@ -42,18 +42,10 @@
     <li><strong>Integrierte SSH-Konsole:</strong> Eine leistungsstarke Dual-Pane-SSH-Konsole zur direkten Verwaltung von Quell- und Zielhost. Inklusive Assistenten zur Einrichtung des passwortlosen SSH-Logins und zur Verwaltung von Cron-Jobs.</li>
 </ul>
 
-<h2 id="voraussetzungen">Voraussetzungen</h2>
-<ul>
-    <li><strong>Windows-Betriebssystem:</strong> Auf dem der Client mit der GUI läuft.</li>
-    <li><strong>PowerShell 5.1 oder höher:</strong> Standardmässig bei Windows 10/11 enthalten. Für volle Funktionalität wird PowerShell 7 empfohlen.</li>
-    <li><strong>Posh-SSH Modul:</strong> Wird für die SSH-Verbindungen benötigt. Wenn es nicht gefunden wird, bietet die GUI an, es automatisch für den aktuellen Benutzer zu installieren (Internetverbindung auf dem PC erforderlich).</li>
-    <li><strong>Netzwerkzugriff:</strong> Vom PC auf den/die ESXi-Host(s) (Port 22/SSH muss erreichbar sein). Für die direkte Replikation muss auch die Verbindung von Host zu Host auf Port 22 möglich sein.</li>
-</ul>
-
 <h2 id="installation-der-gui">Installation & Erster Start</h2>
 <ol>
-    <li>Laden Sie die aktuelle <code>GhettoGUI_V6.7.7.zip</code>-Datei herunter und entpacken Sie sie in einen Ordner.</li>
-    <li><strong>Wichtig:</strong> Klicken Sie mit der rechten Maustaste auf die <code>GhettoGUI_V6.7.7.ps1</code>-Datei, wählen Sie &quot;Eigenschaften&quot; und setzen Sie unten den Haken bei &quot;Zulassen&quot; (Unblock), falls dieser vorhanden ist.</li>
+    <li>Laden Sie die aktuelle <code>GhettoGUI_V6.8.3.zip</code>-Datei herunter und entpacken Sie sie in einen Ordner.</li>
+    <li><strong>Wichtig:</strong> Klicken Sie mit der rechten Maustaste auf die <code>GhettoGUI_V6.8.3.exe</code>-Datei, wählen Sie &quot;Eigenschaften&quot; und setzen Sie unten den Haken bei &quot;Zulassen&quot; (Unblock), falls dieser vorhanden ist.</li>
     <li><strong>PowerShell Ausführungsrichtlinie anpassen:</strong> Öffnen Sie PowerShell als <strong>Administrator</strong> und führen Sie einmalig den folgenden Befehl aus, um das Starten von Skripten zu erlauben:
         <pre><code>Set-ExecutionPolicy Unrestricted</code></pre>
     </li>
@@ -61,7 +53,7 @@
 </ol>
 
 <h2 id="anleitung-und-button-referenz">Anleitung und Button-Referenz</h2>
-<h3 id="bereich-1-verbindung-und-hauptkonfiguration">Bereich 1: Verbindung & Hauptkonfiguration (Oben links)</h3>
+<h3 id="bereich-1-verbindung-und-hauptkonfiguration">Bereich 1: Verbindung & Hauptkonfiguration</h3>
 <ul>
     <li><code>ESXi Host IP / Username</code>: Felder zur Eingabe der Verbindungsdaten für den primären ESXi-Host (Quell-Host).</li>
     <li><strong>Verbinden</strong>: Baut eine SSH-Verbindung zum eingetragenen Host auf. Fordert zur Passworteingabe auf und aktiviert nach Erfolg die meisten anderen GUI-Funktionen.</li>
@@ -81,7 +73,7 @@
     <li><code>Snap Memory / Snap Quiesce</code>: Optionen für die Snapshot-Erstellung. <code>Quiesce</code> erfordert VMware Tools und sorgt für anwendungskonsistente Snapshots.</li>
     <li><strong>VMs laden</strong>: Füllt die untere Liste mit allen auf dem Host registrierten VMs.</li>
     <li><strong>Auswahl übernehmen</strong>: Überträgt die Namen der in der Liste angehakten VMs in das darüberliegende Textfeld. Nur VMs in diesem Textfeld werden gesichert.</li>
-    <li><strong>Einst. Host laden/speichern</strong>: Speichert oder lädt alle Einstellungen der GUI (inkl. Replikation und E-Mail) in eine <code>hostname.ghetto.json</code>-Datei auf Ihrem PC. Perfekt, um Konfigurationen für verschiedene Hosts zu verwalten.</li>
+    <li><strong>Einst. Host laden/speichern</strong>: Diese Buttons speichern oder laden <strong>alle Einstellungen der gesamten GUI</strong> (Backup, Replikation, E-Mail etc.) in/aus einer <code>hostname.ghetto.json</code>-Datei auf Ihrem PC. Perfekt, um Konfigurationen für verschiedene Hosts zu verwalten.</li>
     <li><strong>Ghetto-Konfig. auf ESXi speichern</strong>: Schreibt die Einstellungen aus diesem Bereich in die <code>ghettoVCB.conf</code>-Datei auf dem Host. <strong>Muss vor jedem Backup-Lauf ausgeführt werden, wenn Änderungen gemacht wurden!</strong></li>
 </ul>
 
@@ -123,20 +115,22 @@
 
 <h3 id="downloads">Downloads</h3>
 <div class="button-group">
-    <a href="https://files.drucksprint.ch/Ghetto/GhettoGUI_V6.7.7.zip" class="beta">Download GhettoGUI_V6.7.7.zip (Aktuelle Beta)</a>
-    <a href="https://files.drucksprint.ch/Ghetto/GhettoGUI.zip">Download GhettoGUI.zip (Letzte stabile Version)</a>
+    <a href="https://files.drucksprint.ch/Ghetto/GhettoGUI_V6.8.3.zip" class="beta">Download GhettoGUI_V6.8.3.zip (Aktuelle Beta)</a>
+    <a href="https://files.drucksprint.ch/Ghetto/GhettoGUI.zip">Download GhettoGUI.zip (minimal Version)</a>
+        <a href="https://files.drucksprint.ch/Ghetto/ghettoVCB-master.zip">Offizielle GhettoVCB</a>
 </div>
 <p><strong>PowerShell Abhängigkeiten:</strong></p>
 <ul>
     <li><a href="https://files.drucksprint.ch/Ghetto/Powershell/PowerShell-7.5.1-win-x64.msi">PowerShell 7 (Empfohlen)</a> oder via winget: <code>winget install -e --id Microsoft.PowerShell</code></li>
     <li><a href="https://www.powershellgallery.com/packages/Posh-SSH/3.2.4">Posh-SSH Modul</a> oder via PowerShell: <code>Install-Module -Name Posh-SSH</code></li>
+<li> PowerShell Berechtigung: <code>Set-ExecutionPolicy Unrestricted</code></li>
 </ul>
 
 <h2 id="haftungsausschluss">Haftungsausschluss</h2>
 <p>Diese Software wird &quot;wie besehen&quot; ohne jegliche Gewährleistung bereitgestellt. Die Nutzung erfolgt auf eigene Gefahr.</p>
 
 <h2 id="lizenz">Lizenz</h2>
-<p>Dieses GUI-Tool ist frei verfügbar. Das zugrundeliegende <code>ghettoVCB.sh</code>-Skript unterliegt der Lizenz seines ursprünglichen Autors, William Lam.</p>
+<p>Dieses GUI-Tool ist frei verfügbar. Das zugrundeliegende <code>ghettoVCB.sh</code>-Skript unterliegt der Lizenz seines ursprünglichen Autors, William Lam. und für die Erweiterungen Christian Furrer</p>
 
 </body>
 </html>
