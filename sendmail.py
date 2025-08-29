@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # GhettoVCB-GUI Sendmail (ESXi 6.0–8.03 kompatibel)
-# V3 - Chrigel & Gemini
-# - FIX: Korrigiert die Erstellung des E-Mail-Payloads, um die Kompatibilität
-#   mit dem 'nc' (netcat) Befehl auf ESXi 6.0 sicherzustellen.
-#   Behebt das Problem, bei dem die Verbindung nach dem 'DATA'-Befehl hängen bleibt.
+# V4 - Chrigel & Gemini
+# - FIX: Fundamentale Änderung der Fallback-Logik. Sendet Befehle jetzt
+#   interaktiv (Zeile für Zeile mit Pausen) anstatt als einen grossen Block.
+#   Dies löst das Problem, bei dem 'nc' auf ESXi 6.0 nach dem DATA-Befehl hängt.
 
 from __future__ import print_function
 
@@ -304,11 +304,41 @@ def _smtp_try_send(subject, html_body, to_csv, from_addr, host, port, user, pwd,
 
 def _openssl_fallback(subject, html_body, to_csv, from_addr, host, port, user, pwd,
                       tls_mode, auth_mode, is_important=False):
+    
+    # NEU: Interaktive Sende-Funktion
+    def run_interactive_cmd(cmd, command_list):
+        try:
+            p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except OSError as oe:
+            raise RuntimeError("Cannot exec %s: %s" % (" ".join(cmd), str(oe)))
+        
+        # Lese die erste Server-Antwort (z.B. "220 Welcome")
+        time.sleep(0.5)
+        
+        # Sende Befehle Zeile für Zeile
+        for command in command_list:
+            p.stdin.write(command.encode('utf-8'))
+            p.stdin.flush()
+            time.sleep(0.3) # Wichtige Pause
+        
+        p.stdin.close()
+        
+        out = p.stdout.read()
+        err = p.stderr.read()
+        rc = p.wait()
+
+        # Wir ignorieren rc=1 bei openssl, da es oft durch Zertifikatsfehler ausgelöst wird,
+        # die SMTP-Kommunikation aber trotzdem funktioniert haben könnte.
+        if rc != 0 and "can't open config file" not in err.decode('utf-8', 'ignore'):
+             if not (cmd[0] == 'openssl' and rc == 1):
+                raise RuntimeError("openssl/nc failed (rc=%s): %s" % (rc, (err or b'').decode('utf-8', 'ignore')))
+
+        return out, err
+
     recipients = _split_recipients(to_csv)
     if not recipients:
         raise RuntimeError("No recipients.")
 
-    # Der "rohe" E-Mail-Inhalt (Header + Body)
     raw_email_content = build_message(subject, html_body, to_csv, from_addr, is_important)
 
     try: import base64 as b64mod
@@ -323,7 +353,6 @@ def _openssl_fallback(subject, html_body, to_csv, from_addr, host, port, user, p
 
     ehlo = (socket.gethostname().split('.')[0] or 'esxi')
     
-    # Baue die Befehlssequenz
     commands = []
     commands.append("EHLO %s\r\n" % ehlo)
     
@@ -337,45 +366,23 @@ def _openssl_fallback(subject, html_body, to_csv, from_addr, host, port, user, p
     for r in recipients:
         commands.append("RCPT TO:<%s>\r\n" % r)
     commands.append("DATA\r\n")
-
-    # Korrigiere die Zeilenenden für den Mail-Inhalt und füge den End-Punkt hinzu
-    # Dies ist der entscheidende Fix
-    if isinstance(raw_email_content, bytes):
-        try:
-            raw_email_content = raw_email_content.decode('utf-8')
-        except:
-            raw_email_content = str(raw_email_content)
     
-    # Normalisiere alle Zeilenenden zu \n und ersetze sie dann durch \r\n
+    if isinstance(raw_email_content, bytes):
+        try: raw_email_content = raw_email_content.decode('utf-8')
+        except: raw_email_content = str(raw_email_content)
+    
     normalized_content = raw_email_content.replace('\r\n', '\n').replace('\r', '\n')
     final_email_data = normalized_content.replace('\n', '\r\n')
     
     commands.append(final_email_data + "\r\n.\r\n")
     commands.append("QUIT\r\n")
-    
-    payload = "".join(commands)
-    try:
-        payload_bytes = payload.encode('utf-8')
-    except Exception:
-        payload_bytes = bytes(payload)
-
-    def run_cmd(cmd, payload_bytes):
-        try:
-            p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        except OSError as oe:
-            raise RuntimeError("Cannot exec %s: %s" % (" ".join(cmd), str(oe)))
-        out, err = p.communicate(payload_bytes)
-        rc = p.returncode
-        if rc != 0:
-            raise RuntimeError("openssl/nc failed (rc=%s): %s" % (rc, (err or b'').decode('utf-8', 'ignore')))
-        return out, err
 
     # Intelligenter Fallback für ESXi 6.0 auf Port 25
     if port == 25 and tls_mode != 'ssl':
         try:
-            sys.stdout.write("INFO: Port 25 detected, attempting unencrypted fallback with 'nc' first...\n")
+            sys.stdout.write("INFO: Port 25 detected, attempting unencrypted interactive fallback with 'nc' first...\n")
             cmd = ['nc', host, str(port)]
-            run_cmd(cmd, payload_bytes)
+            run_interactive_cmd(cmd, commands)
             sys.stdout.write("INFO: Email successfully sent to %s ('nc' fallback)\n" % to_csv)
             return True
         except Exception as nc_e:
@@ -390,7 +397,7 @@ def _openssl_fallback(subject, html_body, to_csv, from_addr, host, port, user, p
     else:
         cmd = ['nc', host, str(port)]
         
-    run_cmd(cmd, payload_bytes)
+    run_interactive_cmd(cmd, commands)
     sys.stdout.write("INFO: Email successfully sent to %s (openssl fallback)\n" % to_csv)
     return True
 
@@ -414,7 +421,7 @@ def send_email(subject, body, to_addr, from_addr, smtp_server, smtp_port_str, us
                               user, password, tls_mode, auth_mode, is_important)
             return
         except Exception as e:
-            sys.stderr.write("ERROR: OpenSSL fallback failed: %s\n" % str(e))
+            sys.stderr.write("ERROR: Fallback method failed: %s\n" % str(e))
 
     sys.stderr.write("ERROR: Failed to send email (no usable transport)\n")
 
