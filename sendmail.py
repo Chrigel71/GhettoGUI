@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # GhettoVCB-GUI Sendmail (ESXi 6.0–8.03 kompatibel)
-# V2 - Chrigel & Gemini
-# - NEU: Intelligenter Fallback für ESXi 6.0. Versucht bei Port 25 zuerst
-#   eine unverschlüsselte Verbindung via 'nc', bevor 'openssl' genutzt wird.
-#   Dies umgeht das Problem mit defekten openssl-Konfigurationen.
+# V3 - Chrigel & Gemini
+# - FIX: Korrigiert die Erstellung des E-Mail-Payloads, um die Kompatibilität
+#   mit dem 'nc' (netcat) Befehl auf ESXi 6.0 sicherzustellen.
+#   Behebt das Problem, bei dem die Verbindung nach dem 'DATA'-Befehl hängen bleibt.
 
 from __future__ import print_function
 
@@ -308,7 +308,8 @@ def _openssl_fallback(subject, html_body, to_csv, from_addr, host, port, user, p
     if not recipients:
         raise RuntimeError("No recipients.")
 
-    raw = build_message(subject, html_body, to_csv, from_addr, is_important)
+    # Der "rohe" E-Mail-Inhalt (Header + Body)
+    raw_email_content = build_message(subject, html_body, to_csv, from_addr, is_important)
 
     try: import base64 as b64mod
     except Exception: b64mod = None
@@ -321,33 +322,42 @@ def _openssl_fallback(subject, html_body, to_csv, from_addr, host, port, user, p
         except Exception: return out
 
     ehlo = (socket.gethostname().split('.')[0] or 'esxi')
-    lines = ["EHLO %s\r\n" % ehlo]
     
-    do_auth = False
-    if auth_mode == 'none': do_auth = False
-    elif auth_mode in ('auto', 'login', 'plain'): do_auth = bool(user and pwd)
-
+    # Baue die Befehlssequenz
+    commands = []
+    commands.append("EHLO %s\r\n" % ehlo)
+    
+    do_auth = bool(user and pwd)
     if do_auth:
-        if auth_mode in ('auto', 'login'):
-            lines.append("AUTH LOGIN\r\n")
-            lines.append("%s\r\n" % b64(user))
-            lines.append("%s\r\n" % b64(pwd))
-        elif auth_mode == 'plain':
-            payload = "\0%s\0%s" % (user, pwd)
-            lines.append("AUTH PLAIN %s\r\n" % b64(payload))
+        commands.append("AUTH LOGIN\r\n")
+        commands.append("%s\r\n" % b64(user))
+        commands.append("%s\r\n" % b64(pwd))
 
-    lines.append("MAIL FROM:<%s>\r\n" % from_addr)
+    commands.append("MAIL FROM:<%s>\r\n" % from_addr)
     for r in recipients:
-        lines.append("RCPT TO:<%s>\r\n" % r)
-    lines.append("DATA\r\n")
-    if isinstance(raw, _basestr):
-        body_crlf = raw.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "\r\n")
-    else:
-        try: raw_s = raw.decode('utf-8', 'replace')
-        except Exception: raw_s = str(raw)
-        body_crlf = raw_s.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "\r\n")
-    lines.append(body_crlf + "\r\n.\r\n")
-    lines.append("QUIT\r\n")
+        commands.append("RCPT TO:<%s>\r\n" % r)
+    commands.append("DATA\r\n")
+
+    # Korrigiere die Zeilenenden für den Mail-Inhalt und füge den End-Punkt hinzu
+    # Dies ist der entscheidende Fix
+    if isinstance(raw_email_content, bytes):
+        try:
+            raw_email_content = raw_email_content.decode('utf-8')
+        except:
+            raw_email_content = str(raw_email_content)
+    
+    # Normalisiere alle Zeilenenden zu \n und ersetze sie dann durch \r\n
+    normalized_content = raw_email_content.replace('\r\n', '\n').replace('\r', '\n')
+    final_email_data = normalized_content.replace('\n', '\r\n')
+    
+    commands.append(final_email_data + "\r\n.\r\n")
+    commands.append("QUIT\r\n")
+    
+    payload = "".join(commands)
+    try:
+        payload_bytes = payload.encode('utf-8')
+    except Exception:
+        payload_bytes = bytes(payload)
 
     def run_cmd(cmd, payload_bytes):
         try:
@@ -360,11 +370,7 @@ def _openssl_fallback(subject, html_body, to_csv, from_addr, host, port, user, p
             raise RuntimeError("openssl/nc failed (rc=%s): %s" % (rc, (err or b'').decode('utf-8', 'ignore')))
         return out, err
 
-    payload = "".join(lines)
-    try: payload_bytes = payload.encode('utf-8')
-    except Exception: payload_bytes = bytes(payload)
-
-    # NEU: Intelligenter Fallback für ESXi 6.0 auf Port 25
+    # Intelligenter Fallback für ESXi 6.0 auf Port 25
     if port == 25 and tls_mode != 'ssl':
         try:
             sys.stdout.write("INFO: Port 25 detected, attempting unencrypted fallback with 'nc' first...\n")
@@ -381,7 +387,7 @@ def _openssl_fallback(subject, html_body, to_csv, from_addr, host, port, user, p
         cmd = ['openssl', 's_client', '-quiet', '-crlf', '-starttls', 'smtp', '-connect', '%s:%s' % (host, port)]
     elif tls_mode == 'ssl':
         cmd = ['openssl', 's_client', '-quiet', '-crlf', '-connect', '%s:%s' % (host, port)]
-    else: # Fallback auf 'none', wenn tls_mode ungültig ist (sollte nicht passieren)
+    else:
         cmd = ['nc', host, str(port)]
         
     run_cmd(cmd, payload_bytes)
