@@ -7,7 +7,7 @@ export PATH
 # https://github.com/lamw/ghettoVCB
 # http://communities.vmware.com/docs/DOC-8760
 # Patched by AI for enhanced email notifications and robust root check
-# Use for GhettoGUI_V6.3.5  Christian Furrer, 21.08.2025
+# Use for GhettoGUI_V7.0.3  Christian Furrer, 31.08.2025
 # Fixer Pfad O.K
 # Erweitertes email Log
 
@@ -1021,7 +1021,8 @@ ghettoVCB() {
     fi
 
     for VM_NAME in $(cat "${VM_INPUT}" | grep -v "^#" | sed '/^$/d' | sed -e 's/^[[:blank:]]*//;s/[[:blank:]]*$//'); do
-        IGNORE_VM=0
+        BACKUP_SUCCESSFUL=0
+		IGNORE_VM=0
         if [[ "${EXCLUDE_SOME_VMS}" -eq 1 ]] ; then
             grep -E "^${VM_NAME}\$" "${VM_EXCLUSION_FILE}" > /dev/null 2>&1
             if [[ $? -eq 0 ]] ; then
@@ -1495,6 +1496,7 @@ fi
                     logger "info" "Successfully completed backup for ${VM_NAME}!\n"
                     [[ ${ENABLE_COMPRESSION} -eq 1 ]] && [[ $COMPRESSED_OK -eq 1 ]] || echo "Successfully completed backup" > ${VM_BACKUP_DIR}/STATUS.ok
                     VM_OK=1
+					BACKUP_SUCCESSFUL=1
 
                     #create symlink for the very last backup to support rsync functionality for additinal replication
                     if [[ "${RSYNC_LINK}" -eq 1 ]] ; then
@@ -1535,6 +1537,13 @@ fi
 		NfsIoHack
 		sleep "${NFS_BACKUP_DELAY}" 
 	fi 
+	
+	if [ "${BACKUP_SUCCESSFUL}" -eq 0 ] && [ -d "${VM_BACKUP_DIR}" ]; then
+    logger "info" "WARN: Backup für ${VM_NAME} war nicht erfolgreich. Entferne unvollständiges Verzeichnis: ${VM_BACKUP_DIR}"
+    rm -rf "${VM_BACKUP_DIR}"
+    fi
+	
+	
     done
     # UNTESTED CODE
     # Why is this outside of the main loop & it looks like checkVMBackupRotation() could be called twice?
