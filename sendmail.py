@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # GhettoVCB-GUI Sendmail (ESXi 6.0–8.03 kompatibel)
-# V4 - Chrigel & Gemini
-# - FIX: Fundamentale Änderung der Fallback-Logik. Sendet Befehle jetzt
-#   interaktiv (Zeile für Zeile mit Pausen) anstatt als einen grossen Block.
-#   Dies löst das Problem, bei dem 'nc' auf ESXi 6.0 nach dem DATA-Befehl hängt.
+# V5 - Chrigel & Gemini
+# - FIX: Verwendet jetzt absolute Pfade (/bin/nc, /bin/openssl), um in der
+#   minimalistischen cron-Umgebung von ESXi zuverlässig zu funktionieren.
+# - FIX: Sendet Befehle interaktiv (Zeile für Zeile mit Pausen), um Kompatibilität
+#   mit dem 'nc' (netcat) Befehl auf ESXi 6.0 sicherzustellen.
 
 from __future__ import print_function
 
@@ -312,14 +313,12 @@ def _openssl_fallback(subject, html_body, to_csv, from_addr, host, port, user, p
         except OSError as oe:
             raise RuntimeError("Cannot exec %s: %s" % (" ".join(cmd), str(oe)))
         
-        # Lese die erste Server-Antwort (z.B. "220 Welcome")
         time.sleep(0.5)
         
-        # Sende Befehle Zeile für Zeile
         for command in command_list:
             p.stdin.write(command.encode('utf-8'))
             p.stdin.flush()
-            time.sleep(0.3) # Wichtige Pause
+            time.sleep(0.3)
         
         p.stdin.close()
         
@@ -327,12 +326,9 @@ def _openssl_fallback(subject, html_body, to_csv, from_addr, host, port, user, p
         err = p.stderr.read()
         rc = p.wait()
 
-        # Wir ignorieren rc=1 bei openssl, da es oft durch Zertifikatsfehler ausgelöst wird,
-        # die SMTP-Kommunikation aber trotzdem funktioniert haben könnte.
         if rc != 0 and "can't open config file" not in err.decode('utf-8', 'ignore'):
-             if not (cmd[0] == 'openssl' and rc == 1):
-                raise RuntimeError("openssl/nc failed (rc=%s): %s" % (rc, (err or b'').decode('utf-8', 'ignore')))
-
+             if not (cmd[0].endswith('openssl') and rc == 1):
+                raise RuntimeError("Tool failed (rc=%s): %s" % (rc, (err or b'').decode('utf-8', 'ignore')))
         return out, err
 
     recipients = _split_recipients(to_csv)
@@ -380,22 +376,22 @@ def _openssl_fallback(subject, html_body, to_csv, from_addr, host, port, user, p
     # Intelligenter Fallback für ESXi 6.0 auf Port 25
     if port == 25 and tls_mode != 'ssl':
         try:
-            sys.stdout.write("INFO: Port 25 detected, attempting unencrypted interactive fallback with 'nc' first...\n")
-            cmd = ['nc', host, str(port)]
+            sys.stdout.write("INFO: Port 25, attempting unencrypted interactive fallback with 'nc'...\n")
+            cmd = ['/bin/nc', host, str(port)] # NEU: Absoluter Pfad
             run_interactive_cmd(cmd, commands)
             sys.stdout.write("INFO: Email successfully sent to %s ('nc' fallback)\n" % to_csv)
             return True
         except Exception as nc_e:
-            sys.stderr.write("WARN: 'nc' fallback failed: %s. Proceeding with openssl...\n" % str(nc_e))
+            sys.stderr.write("WARN: 'nc' fallback failed: %s. Proceeding...\n" % str(nc_e))
 
     # Bestehende openssl Logik als zweiter Fallback
     tls_mode = (tls_mode or 'auto').lower()
     if tls_mode in ('auto', 'starttls'):
-        cmd = ['openssl', 's_client', '-quiet', '-crlf', '-starttls', 'smtp', '-connect', '%s:%s' % (host, port)]
+        cmd = ['/bin/openssl', 's_client', '-quiet', '-crlf', '-starttls', 'smtp', '-connect', '%s:%s' % (host, port)] # NEU: Absoluter Pfad
     elif tls_mode == 'ssl':
-        cmd = ['openssl', 's_client', '-quiet', '-crlf', '-connect', '%s:%s' % (host, port)]
+        cmd = ['/bin/openssl', 's_client', '-quiet', '-crlf', '-connect', '%s:%s' % (host, port)] # NEU: Absoluter Pfad
     else:
-        cmd = ['nc', host, str(port)]
+        cmd = ['/bin/nc', host, str(port)] # NEU: Absoluter Pfad
         
     run_interactive_cmd(cmd, commands)
     sys.stdout.write("INFO: Email successfully sent to %s (openssl fallback)\n" % to_csv)
