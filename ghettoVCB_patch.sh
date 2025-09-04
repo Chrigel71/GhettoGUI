@@ -950,6 +950,21 @@ powerOn() {
 }
 
 ghettoVCB() {
+# --- Intelligente Sperrdatei-Prüfung ---
+    LOCK_FILE="/tmp/ghettoVCB.lock"
+    if [ -f "${LOCK_FILE}" ]; then
+        OLD_PID=$(cat "${LOCK_FILE}" 2>/dev/null)
+        if [ -n "${OLD_PID}" ] && ps | grep -w "${OLD_PID}" | grep -v grep > /dev/null; then
+            logger "info" "ERROR: Sperrdatei ${LOCK_FILE} existiert und Prozess (PID: ${OLD_PID}) läuft noch. Breche ab."
+            exit 1
+        else
+            logger "info" "WARN: Veraltete Sperrdatei ${LOCK_FILE} gefunden (PID: ${OLD_PID} nicht mehr aktiv). Datei wird entfernt."
+            rm -f "${LOCK_FILE}"
+        fi
+    fi
+    echo "$$" > "${LOCK_FILE}"
+    # --- Ende der Prüfung ---
+
     VM_INPUT=$1
     VM_OK=0
     VM_FAILED=0
