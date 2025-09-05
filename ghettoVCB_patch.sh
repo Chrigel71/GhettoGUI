@@ -955,6 +955,17 @@ ghettoVCB() {
     VM_FAILED=0
     VMDK_FAILED=0
 
+# --- START: Hinzufügen für detailliertes E-Mail-Log ---
+    echo "Job-Konfiguration:" >> "${LOG_OUTPUT}"
+    echo "  - Typ: GhettoVCB Backup" >> "${LOG_OUTPUT}"
+    echo "  - Backup-Ziel: ${VM_BACKUP_VOLUME}" >> "${LOG_OUTPUT}"
+    echo "  - Rotation: ${VM_BACKUP_ROTATION_COUNT}" >> "${LOG_OUTPUT}"
+    echo "  - Disk-Format: ${DISK_BACKUP_FORMAT}" >> "${LOG_OUTPUT}"
+    echo "Speicherplatz (Vorher):" >> "${LOG_OUTPUT}"
+    echo "  - Ziel (${VM_BACKUP_VOLUME}): $(df -h "${VM_BACKUP_VOLUME}" 2>/dev/null | tail -n 1)" >> "${LOG_OUTPUT}"
+    echo "--- START DES DETAILLOGS ---" >> "${LOG_OUTPUT}"
+    # --- ENDE: Hinzufügen für detailliertes E-Mail-Log ---
+
 # Füge direkt DANACH diesen Block ein:
     # Log configuration details
     echo "Job-Konfiguration:" >> "${LOG_OUTPUT}"
