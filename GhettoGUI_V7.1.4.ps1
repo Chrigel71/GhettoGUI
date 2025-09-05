@@ -3163,12 +3163,13 @@ $multiVmScriptTemplate = @'
 # - ADDED: PATH definition for cron compatibility
 PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/lib/vmware/bin
 export PATH
+rm -f /tmp/ghetto_replication.lock
 
 set -e
 # Parameter
 UNIQUE_ID='__UNIQUE_ID__'; TARGET_HOST='__TARGET_HOST__'; TARGET_DATASTORE='__TARGET_DATASTORE__'; VM_SUFFIX='__VM_SUFFIX__'; REPLICATION_METHOD='__REPLICATION_METHOD__'; GHETTO_PATH='__GHETTO_PATH__'; LOG_FILE="${GHETTO_PATH}/logs/master_replication_${UNIQUE_ID}.log"; SSH_OPTIONS="-T -i /.ssh/id_ecdsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=20 -o Compression=no"; SNAP_MEM=__SNAP_MEM__; SNAP_QUIESCE=__SNAP_QUIESCE__; EMAIL_ENABLED=__EMAIL_ENABLED__; EMAIL_TO='__EMAIL_TO__'; EMAIL_FROM='__EMAIL_FROM__'; EMAIL_SERVER='__EMAIL_SERVER__'; EMAIL_PORT='__EMAIL_PORT__'; EMAIL_USER='__EMAIL_USER__'; EMAIL_PASS='__EMAIL_PASS__'; EMAIL_SUBJECT='__EMAIL_SUBJECT__'; SENDMAIL_PATH="${GHETTO_PATH}/sendmail"; VM_LIST='
 __VM_LIST__
-# '; OVERALL_STATUS="ERROR"; DIRECTORY_LISTING_CONTENT=""; LOCK_FILE="/tmp/ghetto_replication.lock"; TEMP_CLONE_BASE_PATH='__TEMP_CLONE_BASE_PATH__';
+'; OVERALL_STATUS="ERROR"; DIRECTORY_LISTING_CONTENT=""; LOCK_FILE="/tmp/ghetto_replication.lock"; TEMP_CLONE_BASE_PATH='__TEMP_CLONE_BASE_PATH__';
 TEMP_CLONE_DIR="" # Wichtig: Variable global definieren
 
 log() { echo "$(date '+%Y-%m-%d %H:%M:%S') -> $1" >> ${LOG_FILE}; }
@@ -3209,6 +3210,7 @@ cleanup() {
     if [ "${EXIT_CODE}" -ne 0 ] && [ -n "${TEMP_CLONE_DIR}" ] && [ -d "${TEMP_CLONE_DIR}" ]; then
         log_warn "Entferne unvollständiges temporäres Klon-Verzeichnis: ${TEMP_CLONE_DIR}"
         rm -rf "${TEMP_CLONE_DIR}"
+		rm -f /tmp/ghetto_replication.lock
     fi
 
     log_raw "--- ENDE DES DETAILLOGS ---"
