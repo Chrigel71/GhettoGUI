@@ -50,15 +50,16 @@ def create_summary(log_content):
     """
     summary = {
         "status": "Unbekannt", "duration": "N/A", "start_time": "N/A", "end_time": "N/A",
+        "final_size": "N/A", # NEU: Feld für die Grösse
         "vms_processed": [],
-        "errors": [], "warnings": [],
+        "errors": [], "warnings": [], "infos": [], # NEU: Feld für Infos
         "config": [], "storage_before": [], "storage_after": [],
         "directory_listing": [], "detailed_log": []
     }
     in_listing, in_storage_before, in_storage_after, in_config, in_detailed = (False, False, False, False, False)
     current_vm = "Allgemein"
     is_detailed_log = False
-    storage_header = None # Variable für die Kopfzeile
+    storage_header = None
 
     for line in log_content.splitlines():
         s = line.strip()
@@ -71,6 +72,10 @@ def create_summary(log_content):
         if "backup duration:" in s_lower:
             summary["duration"] = s[s_lower.find("backup duration:") + len("backup duration:"):].strip()
             continue
+        # NEU: Final size parsen
+        if "final size:" in s_lower:
+            summary["final_size"] = s[s_lower.find("final size:") + len("final size:"):].strip()
+            continue
         if "initiate backup for" in s_lower:
             vm = s[s_lower.find("initiate backup for") + len("initiate backup for"):].strip()
             current_vm = vm
@@ -78,6 +83,11 @@ def create_summary(log_content):
                 summary["vms_processed"].append(vm)
             continue
 
+        # NEU: smtplib-Warnung als INFO behandeln
+        if "warn:" in s_lower and "smtplib not available" in s_lower:
+            msg = s[s_lower.find("warn:") + len("warn:"):].strip()
+            summary["infos"].append(("ESXi Host", msg))
+            continue
         if ("warn:" in s_lower or "warning:" in s_lower) and "permanently added" not in s_lower:
             find_str = "warning:" if "warning:" in s_lower else "warn:"
             msg = s[s_lower.find(find_str) + len(find_str):].strip()
@@ -95,25 +105,21 @@ def create_summary(log_content):
             summary["errors"].append((vm_context, msg))
             continue
             
-        # Sektions-Parser für detaillierte Logs
         if s.startswith("Startzeit:"):
             summary["start_time"] = s.split(":", 1)[-1].strip(); is_detailed_log = True; continue
         if s.startswith("Endzeit:"):
             summary["end_time"] = s.split(":", 1)[-1].strip(); is_detailed_log = True; continue
-            
         if s.startswith("Job-Konfiguration:"): in_config = True; continue
         if s.startswith("Speicherplatz (Vorher):"): in_config = False; in_storage_before = True; continue
         if s.startswith("Speicherplatz (Nachher):"): in_storage_before = False; in_storage_after = True; continue
         if s.startswith("--- START DES DETAILLOGS ---"): in_config=in_storage_before=in_storage_after=False; in_detailed = True; continue
         if s.startswith("--- ENDE DES DETAILLOGS ---"): in_detailed = False; continue
-        
         if s.startswith("--- START Backup Directory Listing ---"): in_detailed = False; in_storage_after = False; in_listing = True; continue
         if s.startswith("--- END Backup Directory Listing ---"): in_listing = False; continue
 
         if in_config: summary["config"].append(s); continue
         if in_storage_before:
-            if "filesystem" in s_lower and "mounted on" in s_lower:
-                storage_header = s
+            if "filesystem" in s_lower and "mounted on" in s_lower: storage_header = s
             summary["storage_before"].append(s)
             continue
         if in_storage_after: summary["storage_after"].append(s); continue
@@ -121,74 +127,38 @@ def create_summary(log_content):
         if in_detailed: summary["detailed_log"].append(line); continue
 
     # --- HTML-Erstellung ---
-    if "OK" in summary["status"] or "erfolgreich" in summary["status"].lower(): status_color = "#28a745"
-    else: status_color = "#dc3545"
-
-    parts = []
-    parts.append(
-        "<html><head><meta charset='utf-8'>"
-        "<style>"
-        "body{font-family:Arial,sans-serif;font-size:14px; margin:15px;}"
-        "h2,h3,h4{color:#333} pre{font-family:monospace;background:#f8f8f8;padding:10px;border:1px solid #ddd;border-radius:4px;white-space:pre-wrap;word-wrap:break-word}"
-        "ul{list-style-type:none;padding-left:0} li{margin-bottom:5px} li ul{margin-top:5px;margin-left:20px;list-style-type:circle}"
-        ".error-vm{color:#b00020;font-weight:bold} .warn-vm{color:#b06a00;font-weight:bold}"
-        "</style></head><body>"
-    )
-    
+    status_color = "#28a745" if "OK" in summary["status"] or "erfolgreich" in summary["status"].lower() else "#dc3545"
+    parts = ["<html><head><meta charset='utf-8'><style>body{font-family:Arial,sans-serif;font-size:14px; margin:15px;}h2,h3,h4{color:#333} pre{font-family:monospace;background:#f8f8f8;padding:10px;border:1px solid #ddd;border-radius:4px;white-space:pre-wrap;word-wrap:break-word}ul{list-style-type:none;padding-left:0} li{margin-bottom:5px} li ul{margin-top:5px;margin-left:20px;list-style-type:circle}.error-vm{color:#b00020;font-weight:bold} .warn-vm{color:#b06a00;font-weight:bold} .info-vm{color:#00579b;font-weight:bold}</style></head><body>"]
     parts.append('<h2 style="color: %s;">Backup-Zusammenfassung</h2><hr>' % status_color)
     status_html = '<span style="color: %s; font-weight: bold;">%s</span>' % (status_color, html_escape(summary["status"]))
     
-    if is_detailed_log:
-        parts.append('<p><b>Status:</b> %s</p>' % status_html)
-        parts.append("<h4>Job-Details:</h4><ul>")
-        parts.append("<li><b>Startzeit:</b> %s</li>" % html_escape(summary["start_time"]))
-        parts.append("<li><b>Endzeit:</b> %s</li>" % (html_escape(summary["end_time"]) if summary["end_time"] != "N/A" else "<em>Job nicht beendet</em>"))
-        parts.append("<li><b>Dauer:</b> %s</li>" % html_escape(summary["duration"]))
-        parts.append("</ul>")
-    else:
-        parts.append('<p><b>Status:</b> %s</p>' % status_html)
-        parts.append("<p><b>Dauer:</b> %s</p>" % html_escape(summary["duration"]))
+    parts.append('<p><b>Status:</b> %s</p>' % status_html)
+    parts.append("<h4>Job-Details:</h4><ul>")
+    parts.append("<li><b>Startzeit:</b> %s</li>" % html_escape(summary["start_time"]))
+    parts.append("<li><b>Endzeit:</b> %s</li>" % (html_escape(summary["end_time"]) if summary["end_time"] != "N/A" else "<em>Job nicht beendet</em>"))
+    parts.append("<li><b>Dauer:</b> %s</li>" % html_escape(summary["duration"]))
+    # NEU: Füge die Grösse hinzu, wenn vorhanden
+    if summary["final_size"] != "N/A":
+        parts.append("<li><b>Grösse:</b> %s</li>" % html_escape(summary["final_size"]))
+    parts.append("</ul>")
 
     parts.append("<hr>")
-    
     parts.append("<h3>Verarbeitete VMs (%d)</h3>" % len(summary["vms_processed"]))
-    if summary["vms_processed"]:
-        parts.append("<ul>%s</ul>" % "".join("<li>%s</li>" % html_escape(vm) for vm in summary["vms_processed"]))
-    else:
-        parts.append("<p>Keine.</p>")
+    parts.append("<ul>%s</ul>" % "".join("<li>%s</li>" % html_escape(vm) for vm in summary["vms_processed"]) if summary["vms_processed"] else "<p>Keine.</p>")
     
+    # NEU: Info-Sektion hinzufügen
+    parts.append("<h3>Informationen (%d)</h3>" % len(summary["infos"]))
+    parts.append("<ul>%s</ul>" % "".join('<li><strong class="info-vm">Kontext: %s</strong><ul><li>%s</li></ul></li>' % (html_escape(vm), html_escape(msg)) for vm, msg in summary["infos"]) if summary["infos"] else "<p>Keine.</p>")
+
     parts.append("<h3>Warnungen (%d)</h3>" % len(summary["warnings"]))
-    if summary["warnings"]:
-        parts.append("<ul>%s</ul>" % "".join('<li><strong class="warn-vm">VM: %s</strong><ul><li>%s</li></ul></li>' % (html_escape(vm), html_escape(msg)) for vm, msg in summary["warnings"]))
-    else:
-        parts.append("<p>Keine.</p>")
-
+    parts.append("<ul>%s</ul>" % "".join('<li><strong class="warn-vm">VM: %s</strong><ul><li>%s</li></ul></li>' % (html_escape(vm), html_escape(msg)) for vm, msg in summary["warnings"]) if summary["warnings"] else "<p>Keine.</p>")
     parts.append("<h3>Fehler (%d)</h3>" % len(summary["errors"]))
-    if summary["errors"]:
-        parts.append("<ul>%s</ul>" % "".join('<li><strong class="error-vm">VM: %s</strong><ul><li>%s</li></ul></li>' % (html_escape(vm), html_escape(msg)) for vm, msg in summary["errors"]))
-    else:
-        parts.append("<p>Keine.</p>")
+    parts.append("<ul>%s</ul>" % "".join('<li><strong class="error-vm">VM: %s</strong><ul><li>%s</li></ul></li>' % (html_escape(vm), html_escape(msg)) for vm, msg in summary["errors"]) if summary["errors"] else "<p>Keine.</p>")
         
-    if is_detailed_log:
-        if summary["config"]:
-            parts.append("<hr><h4>Konfiguration:</h4><ul>%s</ul>" % "".join("<li>%s</li>" % html_escape(i) for i in summary["config"]))
-        if summary["storage_before"] or summary["storage_after"]:
-            parts.append("<h4>Speicherplatz:</h4><pre>")
-            if summary["storage_after"]:
-                parts.append("<b>Nach dem Job:</b>")
-                if storage_header:
-                    parts.append(html_escape(storage_header))
-                parts.append("\n".join(html_escape(s) for s in summary["storage_after"]))
-            if summary["storage_before"]:
-                parts.append("\n<b>Vor dem Job:</b>\n" + "\n".join(html_escape(s) for s in summary["storage_before"]))
-            parts.append("</pre>")
-
-    if summary["directory_listing"]:
-        parts.append("<hr><h3>Inhalt des Backup-Verzeichnisses</h3><pre>%s</pre>" % "\n".join(html_escape(x) for x in summary["directory_listing"]))
-    
-    if summary["detailed_log"]:
-        parts.append("<hr><h3>Detailliertes Prozess-Log</h3><pre>%s</pre>" % "\n".join(html_escape(x) for x in summary["detailed_log"]))
-
+    if summary["config"]: parts.append("<hr><h4>Konfiguration:</h4><ul>%s</ul>" % "".join("<li>%s</li>" % html_escape(i) for i in summary["config"]))
+    if summary["storage_before"] or summary["storage_after"]: parts.append("<h4>Speicherplatz:</h4><pre>"); parts.append("<b>Nach dem Job:</b>\n" + "\n".join(html_escape(s) for s in summary["storage_after"]) if summary["storage_after"] else ""); parts.append("\n<b>Vor dem Job:</b>\n" + "\n".join(html_escape(s) for s in summary["storage_before"]) if summary["storage_before"] else ""); parts.append("</pre>")
+    if summary["directory_listing"]: parts.append("<hr><h3>Inhalt des Ziel-Verzeichnisses</h3><pre>%s</pre>" % "\n".join(html_escape(x) for x in summary["directory_listing"]))
+    if summary["detailed_log"]: parts.append("<hr><h3>Detailliertes Prozess-Log</h3><pre>%s</pre>" % "\n".join(html_escape(x) for x in summary["detailed_log"]))
     parts.append("</body></html>")
     
     is_important = len(summary["errors"]) > 0 or len(summary["warnings"]) > 0
