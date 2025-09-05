@@ -139,7 +139,7 @@ def create_summary(log_content):
     parts.append("<li><b>Dauer:</b> %s</li>" % html_escape(summary["duration"]))
     # NEU: Füge die Grösse hinzu, wenn vorhanden
     if summary["final_size"] != "N/A":
-        parts.append("<li><b>Grösse:</b> %s</li>" % html_escape(summary["final_size"]))
+        parts.append("<li><b>Groesse:</b> %s</li>" % html_escape(summary["final_size"]))
     parts.append("</ul>")
 
     parts.append("<hr>")
