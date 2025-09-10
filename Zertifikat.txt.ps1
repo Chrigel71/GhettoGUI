@@ -13,6 +13,6 @@ $store.Add($cert)
 $store.Close()
 
 # Schritt 4: Den Signierungs-Befehl erneut ausführen
-Set-AuthenticodeSignature -FilePath "C:\Users\Admin\Documents\Ghetto\GhettoGUI_V6.0\GhettoGUI_V6.2.exe" -Certificate $cert
+Set-AuthenticodeSignature -FilePath "C:\Users\Admin\Documents\Ghetto\GhettoGUI_V7.3.0\GhettoGUI_V7.3.0.exe" -Certificate $cert
 
-Export-Certificate -Cert (Get-Item Cert:\CurrentUser\My\5512BC3D9B736A3F53C836172A6A82CEBEA581C9) -FilePath "C:\Users\Admin\Documents\Ghetto\GhettoGUI_V6.0\GhettoGUIScripts_public.cer"
+Export-Certificate -Cert (Get-Item Cert:\CurrentUser\My\5512BC3D9B736A3F53C836172A6A82CEBEA581C9) -FilePath "C:\Users\Admin\Documents\Ghetto\GhettoGUI_V7.3.0\GhettoGUIScripts_public.cer"
