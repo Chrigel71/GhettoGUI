@@ -7,7 +7,7 @@ export PATH
 # https://github.com/lamw/ghettoVCB
 # http://communities.vmware.com/docs/DOC-8760
 # Patched by AI for enhanced email notifications and robust root check
-# Use for GhettoGUI_V7.0.3  Christian Furrer, 31.08.2025
+# Use for GhettoGUI_V7.0.3  Christian Furrer, 10.09.2025
 # Fixer Pfad O.K
 # Erweitertes email Log
 
@@ -1865,78 +1865,42 @@ trap 'rm -f "$LOCK"; rm -rf "${WORKDIR}"; exit 2' 1 2 3 13 15
 
 
     ghettoVCB ${VM_FILE}
-
-    # NEU: Fügt den Inhalt des Backup-Verzeichnisses zum Log hinzu
-    #
+# Finale Log-Einträge für den E-Mail-Bericht
+    FINAL_SIZE=$(du -sh "${VM_BACKUP_VOLUME}" | awk '{print $1}')
+    echo "Final size: ${FINAL_SIZE}" >> "${LOG_OUTPUT}"
+    echo "Speicherplatz (Nachher):" >> "${LOG_OUTPUT}"
+    echo "  - Ziel (${VM_BACKUP_VOLUME}): $(df -h "${VM_BACKUP_VOLUME}" 2>/dev/null | tail -n 1)" >> "${LOG_OUTPUT}"
     if [ -d "${VM_BACKUP_VOLUME}" ]; then
-        logger "info" "--- START Backup Directory Listing ---"
-        # Wir leiten den ls-Befehl direkt in die Log-Datei um
+        echo "--- START Backup Directory Listing ---" >> "${LOG_OUTPUT}"
         ls -lR "${VM_BACKUP_VOLUME}" >> "${LOG_OUTPUT}"
-        logger "info" "--- END Backup Directory Listing ---"
+        echo "--- END Backup Directory Listing ---" >> "${LOG_OUTPUT}"
     fi
 
-    #
-    # HIER IST DIE KORREKTUR:
-    # Diese Aufrufe stellen sicher, dass nach dem Backup der Status ermittelt
-    # und die E-Mail-Funktion aufgerufen wird. Diese haben vorher gefehlt.
-    #
     getFinalStatus
     
-    # Die sendMail-Funktion wird nun direkt hier aufgerufen, anstatt am Ende definiert zu werden.
-    # Check if emailing is enabled at all
+    # Die sendMail-Funktion wird nun direkt hier aufgerufen
     if [[ "${EMAIL_LOG}" -ne 1 ]]; then
         logger "info" "Email log is not enabled, skipping email notification."
     else
         EXEC_EMAIL_BIN=$(eval echo "${EMAIL_BIN}")
-        
-        # Prüft, ob die Datei existiert (-f)
         if [[ -n "${EXEC_EMAIL_BIN}" ]] && [[ -f "${EXEC_EMAIL_BIN}" ]]; then
             logger "info" "Sending email summary via custom EMAIL_BIN: ${EXEC_EMAIL_BIN}"
-
-            if [[ -z "${EMAIL_SUBJECT}" ]]; then
-                EMAIL_SUBJECT="ghettoVCB Report for $(hostname -s)"
-            fi
-            # Der Betreff wird hier mit dem finalen Status kombiniert
             SUBJECT="${EMAIL_SUBJECT} - ${FINAL_STATUS}"
-            
-                LOG_FILE_PATH="${LOG_OUTPUT}"
-				RECIPIENTS=${EMAIL_TO}
+            LOG_FILE_PATH="${LOG_OUTPUT}"; RECIPIENTS=${EMAIL_TO}
             if [[ -z "${RECIPIENTS}" ]]; then 
                 logger "info" "No email recipients defined."
             else
-                # Finale, ash-kompatible Aufruf-Logik
                 TMP_EXEC_PATH="/tmp/sendmail_exec_$$"
-    cp "${EXEC_EMAIL_BIN}" "${TMP_EXEC_PATH}"
-                if [[ $? -ne 0 ]]; then 
-                    logger "info" "ERROR: Failed to copy mail script to /tmp."
-                else
+                cp "${EXEC_EMAIL_BIN}" "${TMP_EXEC_PATH}";
+                if [[ $? -eq 0 ]]; then 
                     chmod +x "${TMP_EXEC_PATH}"
-                    
                     logger "info" "Calling mail script via 'python ${TMP_EXEC_PATH}' for recipients: ${RECIPIENTS}..."
-                    
-                    # Führe den Befehl aus und fange die Ausgabe (stdout und stderr) ab
-                    OUTPUT=$(python "${TMP_EXEC_PATH}" \
-                        -f "${EMAIL_FROM}" \
-                        -s "${EMAIL_SERVER}" \
-                        -S "${EMAIL_SERVER_PORT}" \
-                        -j "${SUBJECT}" \
-                        -m "${LOG_FILE_PATH}" \
-                        -u "${EMAIL_USER_NAME}" \
-                        -p "${EMAIL_USER_PASSWORD}" \
-                        $(echo "${RECIPIENTS}" | sed 's/,/ /g') 2>&1)
-                    
+                    OUTPUT=$(python "${TMP_EXEC_PATH}" -f "${EMAIL_FROM}" -s "${EMAIL_SERVER}" -S "${EMAIL_SERVER_PORT}" -j "${SUBJECT}" -m "${LOG_FILE_PATH}" -u "${EMAIL_USER_NAME}" -p "${EMAIL_USER_PASSWORD}" $(echo "${RECIPIENTS}" | sed 's/,/ /g') 2>&1)
                     EXIT_CODE=$?
-                    
-                    # Protokolliere das Ergebnis des E-Mail-Versands
-                    if [ $EXIT_CODE -ne 0 ]; then
-                        logger "info" "ERROR: Email script failed with exit code ${EXIT_CODE}."
-                        logger "info" "Email script output: ${OUTPUT}"
-                    else
-                        logger "info" "Email script executed."
-                        logger "info" "Email script output: ${OUTPUT}"
-                    fi
-                    
+                    if [ $EXIT_CODE -ne 0 ]; then logger "info" "ERROR: Email script failed with exit code ${EXIT_CODE}."; logger "info" "Email script output: ${OUTPUT}"; else logger "info" "Email script executed."; logger "info" "Email script output: ${OUTPUT}"; fi
                     rm "${TMP_EXEC_PATH}"
+                else
+                    logger "info" "ERROR: Failed to copy mail script to /tmp."
                 fi
             fi
         else
