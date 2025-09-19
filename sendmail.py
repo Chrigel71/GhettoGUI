@@ -1,7 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # GhettoVCB-GUI Sendmail (ESXi 6.0–8.03 kompatibel)
-# V5 - Chrigel & Gemini
+# V6 - Chrigel & Gemini fuer GhettoGUI 7.5 19.09.2025
+# - FIX: Die Zusammenfassung verwendet jetzt nur die ERSTE gefundene "Startzeit"
+#        und berechnet die Gesamtdauer selbst aus Start- und Endzeit,
+#        um bei Multi-VM-Jobs korrekte Werte zu liefern.
 # - FIX: Verwendet jetzt absolute Pfade (/bin/nc, /bin/openssl), um in der
 #   minimalistischen cron-Umgebung von ESXi zuverlässig zu funktionieren.
 # - FIX: Sendet Befehle interaktiv (Zeile für Zeile mit Pausen), um Kompatibilität
@@ -10,6 +13,7 @@
 from __future__ import print_function
 
 import sys, os, argparse, socket, subprocess, time
+from datetime import datetime
 
 # smtplib kann auf ESXi 6.0 fehlen
 try:
@@ -50,9 +54,9 @@ def create_summary(log_content):
     """
     summary = {
         "status": "Unbekannt", "duration": "N/A", "start_time": "N/A", "end_time": "N/A",
-        "final_size": "N/A", # NEU: Feld für die Grösse
+        "final_size": "N/A",
         "vms_processed": [],
-        "errors": [], "warnings": [], "infos": [], # NEU: Feld für Infos
+        "errors": [], "warnings": [], "infos": [],
         "config": [], "storage_before": [], "storage_after": [],
         "directory_listing": [], "detailed_log": []
     }
@@ -69,10 +73,12 @@ def create_summary(log_content):
         if "final status:" in s_lower:
             summary["status"] = s[s_lower.find("final status:") + len("final status:"):].replace("#", "").strip()
             continue
-        if "backup duration:" in s_lower:
-            summary["duration"] = s[s_lower.find("backup duration:") + len("backup duration:"):].strip()
-            continue
-        # NEU: Final size parsen
+        
+        # Ignoriere "Backup Duration" aus dem Log, wir berechnen es selbst
+        # if "backup duration:" in s_lower:
+        #     summary["duration"] = s[s_lower.find("backup duration:") + len("backup duration:"):].strip()
+        #     continue
+
         if "final size:" in s_lower:
             summary["final_size"] = s[s_lower.find("final size:") + len("final size:"):].strip()
             continue
@@ -83,7 +89,6 @@ def create_summary(log_content):
                 summary["vms_processed"].append(vm)
             continue
 
-        # NEU: smtplib-Warnung als INFO behandeln
         if "warn:" in s_lower and "smtplib not available" in s_lower:
             msg = s[s_lower.find("warn:") + len("warn:"):].strip()
             summary["infos"].append(("ESXi Host", msg))
@@ -105,10 +110,14 @@ def create_summary(log_content):
             summary["errors"].append((vm_context, msg))
             continue
             
-        if s.startswith("Startzeit:"):
+        # ### KORREKTUR 1: Nur die ERSTE Startzeit speichern ###
+        if s.startswith("Startzeit:") and summary["start_time"] == "N/A":
             summary["start_time"] = s.split(":", 1)[-1].strip(); is_detailed_log = True; continue
+        
+        # Die Endzeit wird immer überschrieben, was korrekt ist, da wir die letzte wollen.
         if s.startswith("Endzeit:"):
             summary["end_time"] = s.split(":", 1)[-1].strip(); is_detailed_log = True; continue
+        
         if s.startswith("Job-Konfiguration:"): in_config = True; continue
         if s.startswith("Speicherplatz (Vorher):"): in_config = False; in_storage_before = True; continue
         if s.startswith("Speicherplatz (Nachher):"): in_storage_before = False; in_storage_after = True; continue
@@ -126,6 +135,29 @@ def create_summary(log_content):
         if in_listing: summary["directory_listing"].append(line); continue
         if in_detailed: summary["detailed_log"].append(line); continue
 
+    # ### KORREKTUR 2: Dauer selbst berechnen ###
+    if summary["start_time"] != "N/A" and summary["end_time"] != "N/A":
+        try:
+            # Versuche, verschiedene Datumsformate zu parsen
+            time_format = None
+            if '.' in summary["start_time"]:
+                 # Beispiel: 2025-09-19 08:58:05.123
+                 time_format = "%Y-%m-%d %H:%M:%S.%f"
+            else:
+                 # Beispiel: 2025-09-19 08:58:05
+                 time_format = "%Y-%m-%d %H:%M:%S"
+            
+            t1 = datetime.strptime(summary["start_time"].strip(), time_format)
+            t2 = datetime.strptime(summary["end_time"].strip(), time_format)
+            
+            delta = t2 - t1
+            total_seconds = delta.total_seconds()
+            minutes = total_seconds / 60.0
+            summary["duration"] = "%.2f Minutes" % minutes
+        except ValueError:
+            # Fallback, falls das Datumsformat unerwartet ist
+            summary["duration"] = "Konnte nicht berechnet werden"
+
     # --- HTML-Erstellung ---
     status_color = "#28a745" if "OK" in summary["status"] or "erfolgreich" in summary["status"].lower() else "#dc3545"
     parts = ["<html><head><meta charset='utf-8'><style>body{font-family:Arial,sans-serif;font-size:14px; margin:15px;}h2,h3,h4{color:#333} pre{font-family:monospace;background:#f8f8f8;padding:10px;border:1px solid #ddd;border-radius:4px;white-space:pre-wrap;word-wrap:break-word}ul{list-style-type:none;padding-left:0} li{margin-bottom:5px} li ul{margin-top:5px;margin-left:20px;list-style-type:circle}.error-vm{color:#b00020;font-weight:bold} .warn-vm{color:#b06a00;font-weight:bold} .info-vm{color:#00579b;font-weight:bold}</style></head><body>"]
@@ -137,7 +169,6 @@ def create_summary(log_content):
     parts.append("<li><b>Startzeit:</b> %s</li>" % html_escape(summary["start_time"]))
     parts.append("<li><b>Endzeit:</b> %s</li>" % (html_escape(summary["end_time"]) if summary["end_time"] != "N/A" else "<em>Job nicht beendet</em>"))
     parts.append("<li><b>Dauer:</b> %s</li>" % html_escape(summary["duration"]))
-    # NEU: Füge die Grösse hinzu, wenn vorhanden
     if summary["final_size"] != "N/A":
         parts.append("<li><b>Groesse:</b> %s</li>" % html_escape(summary["final_size"]))
     parts.append("</ul>")
@@ -146,7 +177,6 @@ def create_summary(log_content):
     parts.append("<h3>Verarbeitete VMs (%d)</h3>" % len(summary["vms_processed"]))
     parts.append("<ul>%s</ul>" % "".join("<li>%s</li>" % html_escape(vm) for vm in summary["vms_processed"]) if summary["vms_processed"] else "<p>Keine.</p>")
     
-    # NEU: Info-Sektion hinzufügen
     parts.append("<h3>Informationen (%d)</h3>" % len(summary["infos"]))
     parts.append("<ul>%s</ul>" % "".join('<li><strong class="info-vm">Kontext: %s</strong><ul><li>%s</li></ul></li>' % (html_escape(vm), html_escape(msg)) for vm, msg in summary["infos"]) if summary["infos"] else "<p>Keine.</p>")
 
@@ -276,7 +306,6 @@ def _smtp_try_send(subject, html_body, to_csv, from_addr, host, port, user, pwd,
 def _openssl_fallback(subject, html_body, to_csv, from_addr, host, port, user, pwd,
                       tls_mode, auth_mode, is_important=False):
     
-    # NEU: Interaktive Sende-Funktion
     def run_interactive_cmd(cmd, command_list):
         try:
             p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -343,25 +372,23 @@ def _openssl_fallback(subject, html_body, to_csv, from_addr, host, port, user, p
     commands.append(final_email_data + "\r\n.\r\n")
     commands.append("QUIT\r\n")
 
-    # Intelligenter Fallback für ESXi 6.0 auf Port 25
     if port == 25 and tls_mode != 'ssl':
         try:
             sys.stdout.write("INFO: Port 25, attempting unencrypted interactive fallback with 'nc'...\n")
-            cmd = ['/bin/nc', host, str(port)] # NEU: Absoluter Pfad
+            cmd = ['/bin/nc', host, str(port)]
             run_interactive_cmd(cmd, commands)
             sys.stdout.write("INFO: Email successfully sent to %s ('nc' fallback)\n" % to_csv)
             return True
         except Exception as nc_e:
             sys.stderr.write("WARN: 'nc' fallback failed: %s. Proceeding...\n" % str(nc_e))
 
-    # Bestehende openssl Logik als zweiter Fallback
     tls_mode = (tls_mode or 'auto').lower()
     if tls_mode in ('auto', 'starttls'):
-        cmd = ['/bin/openssl', 's_client', '-quiet', '-crlf', '-starttls', 'smtp', '-connect', '%s:%s' % (host, port)] # NEU: Absoluter Pfad
+        cmd = ['/bin/openssl', 's_client', '-quiet', '-crlf', '-starttls', 'smtp', '-connect', '%s:%s' % (host, port)]
     elif tls_mode == 'ssl':
-        cmd = ['/bin/openssl', 's_client', '-quiet', '-crlf', '-connect', '%s:%s' % (host, port)] # NEU: Absoluter Pfad
+        cmd = ['/bin/openssl', 's_client', '-quiet', '-crlf', '-connect', '%s:%s' % (host, port)]
     else:
-        cmd = ['/bin/nc', host, str(port)] # NEU: Absoluter Pfad
+        cmd = ['/bin/nc', host, str(port)]
         
     run_interactive_cmd(cmd, commands)
     sys.stdout.write("INFO: Email successfully sent to %s (openssl fallback)\n" % to_csv)
