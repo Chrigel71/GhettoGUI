@@ -1,19 +1,19 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # GhettoVCB-GUI Sendmail (ESXi 6.0–8.03 kompatibel)
-# V6 - Chrigel & Gemini fuer GhettoGUI 7.5 19.09.2025
-# - FIX: Die Zusammenfassung verwendet jetzt nur die ERSTE gefundene "Startzeit"
-#        und berechnet die Gesamtdauer selbst aus Start- und Endzeit,
-#        um bei Multi-VM-Jobs korrekte Werte zu liefern.
-# - FIX: Verwendet jetzt absolute Pfade (/bin/nc, /bin/openssl), um in der
-#   minimalistischen cron-Umgebung von ESXi zuverlässig zu funktionieren.
-# - FIX: Sendet Befehle interaktiv (Zeile für Zeile mit Pausen), um Kompatibilität
-#   mit dem 'nc' (netcat) Befehl auf ESXi 6.0 sicherzustellen.
+# V7 - Chrigel & Gemini fuer GhettoGUI 7.6.3 29.09.2025
+# - NEU: Liest den "Zusammenfassung der geklonten VMs"-Block aus dem Log aus
+#        und stellt diesen an prominenter Stelle im HTML-Report dar,
+#        inklusive Quell-VM, Ziel-VM und Grösse.
+# - FIX: Behält die Abwärtskompatibilität bei; wenn der neue Block nicht
+#        im Log gefunden wird, wird die alte VM-Liste angezeigt.
 
 from __future__ import print_function
 
 import sys, os, argparse, socket, subprocess, time
 from datetime import datetime
+import re  # <— NEU (wird in create_summary gebraucht)
+
 
 # smtplib kann auf ESXi 6.0 fehlen
 try:
@@ -56,28 +56,40 @@ def create_summary(log_content):
         "status": "Unbekannt", "duration": "N/A", "start_time": "N/A", "end_time": "N/A",
         "final_size": "N/A",
         "vms_processed": [],
+        "vm_report_lines": [], # NEU: Für die formatierte Zusammenfassung
         "errors": [], "warnings": [], "infos": [],
         "config": [], "storage_before": [], "storage_after": [],
         "directory_listing": [], "detailed_log": []
     }
-    in_listing, in_storage_before, in_storage_after, in_config, in_detailed = (False, False, False, False, False)
+    in_listing, in_storage_before, in_storage_after, in_config, in_detailed, in_vm_summary = (False, False, False, False, False, False)
     current_vm = "Allgemein"
     is_detailed_log = False
     storage_header = None
 
+    in_vm_sum = False
+    vm_report_lines = []  # NEU: fuer VM-Zusammenfassung
+
     for line in log_content.splitlines():
         s = line.strip()
         s_lower = s.lower()
+        # --- NEU: VM-Zusammenfassung parsen ---
+        if ('zusammenfassung der geklonten vms' in s_lower) or ('summary of cloned vms' in s_lower):
+            in_vm_sum = True
+            continue
+        if in_vm_sum and (s.startswith('---') or 'backup duration' in s_lower or 'final status' in s_lower):
+            in_vm_sum = False
+        if in_vm_sum:
+            if s.startswith('-') or '- ' in s:
+                for entry in s.split('- '):
+                    rep = entry.strip()
+                    if rep.startswith('-'): rep = rep[1:].strip()
+                    if rep: vm_report_lines.append(rep)
+            continue
 
         # --- Parsing Logik ---
         if "final status:" in s_lower:
             summary["status"] = s[s_lower.find("final status:") + len("final status:"):].replace("#", "").strip()
             continue
-        
-        # Ignoriere "Backup Duration" aus dem Log, wir berechnen es selbst
-        # if "backup duration:" in s_lower:
-        #     summary["duration"] = s[s_lower.find("backup duration:") + len("backup duration:"):].strip()
-        #     continue
 
         if "final size:" in s_lower:
             summary["final_size"] = s[s_lower.find("final size:") + len("final size:"):].strip()
@@ -110,54 +122,92 @@ def create_summary(log_content):
             summary["errors"].append((vm_context, msg))
             continue
             
-        # ### KORREKTUR 1: Nur die ERSTE Startzeit speichern ###
         if s.startswith("Startzeit:") and summary["start_time"] == "N/A":
             summary["start_time"] = s.split(":", 1)[-1].strip(); is_detailed_log = True; continue
         
-        # Die Endzeit wird immer überschrieben, was korrekt ist, da wir die letzte wollen.
         if s.startswith("Endzeit:"):
             summary["end_time"] = s.split(":", 1)[-1].strip(); is_detailed_log = True; continue
         
+         
+        # --- KORREKTUR: Flexible Erkennung für den Start der Zusammenfassung ---
+        if s.startswith("---") and ("zusammenfassung der" in s_lower or "groessen der" in s_lower):
+            in_config=in_storage_before=in_storage_after=in_detailed=in_listing = False
+            in_vm_summary = True
+            continue
+        
+        if s.startswith("---") and in_vm_summary: # Jede neue Sektion beendet die VM-Zusammenfassung
+            in_vm_summary = False
+        
+        # Die Logik zum Sammeln der Zeilen
+        if in_vm_summary:
+            if s.startswith("-"):
+                # Behandelt aneinandergereihte Zeilen, indem sie am nächsten "-" aufgeteilt werden
+                entries = s.split('- ')
+                for entry in entries:
+                    report_line = entry.strip()
+                    if report_line.startswith('-'): report_line = report_line[1:].strip()
+                    if report_line: summary["vm_report_lines"].append(report_line)
+            continue
+
         if s.startswith("Job-Konfiguration:"): in_config = True; continue
         if s.startswith("Speicherplatz (Vorher):"): in_config = False; in_storage_before = True; continue
         if s.startswith("Speicherplatz (Nachher):"): in_storage_before = False; in_storage_after = True; continue
-        if s.startswith("--- START DES DETAILLOGS ---"): in_config=in_storage_before=in_storage_after=False; in_detailed = True; continue
+        if s.startswith("--- START DES DETAILLOGS ---"): in_config=in_storage_before=in_storage_after=in_vm_summary=False; in_detailed = True; continue
         if s.startswith("--- ENDE DES DETAILLOGS ---"): in_detailed = False; continue
-        if s.startswith("--- START Backup Directory Listing ---"): in_detailed = False; in_storage_after = False; in_listing = True; continue
+        if s.startswith("--- START Backup Directory Listing ---"): in_detailed=in_storage_after=False; in_listing = True; continue
         if s.startswith("--- END Backup Directory Listing ---"): in_listing = False; continue
 
         if in_config: summary["config"].append(s); continue
-        if in_storage_before:
-            if "filesystem" in s_lower and "mounted on" in s_lower: storage_header = s
-            summary["storage_before"].append(s)
-            continue
+        if in_storage_before: summary["storage_before"].append(s); continue
         if in_storage_after: summary["storage_after"].append(s); continue
         if in_listing: summary["directory_listing"].append(line); continue
         if in_detailed: summary["detailed_log"].append(line); continue
 
-    # ### KORREKTUR 2: Dauer selbst berechnen ###
     if summary["start_time"] != "N/A" and summary["end_time"] != "N/A":
         try:
-            # Versuche, verschiedene Datumsformate zu parsen
-            time_format = None
-            if '.' in summary["start_time"]:
-                 # Beispiel: 2025-09-19 08:58:05.123
-                 time_format = "%Y-%m-%d %H:%M:%S.%f"
-            else:
-                 # Beispiel: 2025-09-19 08:58:05
-                 time_format = "%Y-%m-%d %H:%M:%S"
-            
+            time_format = "%Y-%m-%d %H:%M:%S"
             t1 = datetime.strptime(summary["start_time"].strip(), time_format)
             t2 = datetime.strptime(summary["end_time"].strip(), time_format)
-            
             delta = t2 - t1
             total_seconds = delta.total_seconds()
-            minutes = total_seconds / 60.0
-            summary["duration"] = "%.2f Minutes" % minutes
-        except ValueError:
-            # Fallback, falls das Datumsformat unerwartet ist
+            minutes, seconds = divmod(total_seconds, 60)
+            summary["duration"] = "%d Minuten, %d Sekunden" % (minutes, seconds)
+        except Exception:
             summary["duration"] = "Konnte nicht berechnet werden"
 
+    # --- NEU: Gesamtgroesse & Pretty-VM-Liste (immer GB) ---
+    if summary.get('final_size', 'N/A') == 'N/A' and vm_report_lines:
+        import re as _re
+        total_gb = 0.0
+        for _rep in vm_report_lines:
+            m = _re.search(r'\(([^\s\)]+)\s*([GM]B?)\)', _rep, _re.IGNORECASE) or _re.search(r'\(([^\s\)]+)\s*([GM])\)', _rep, _re.IGNORECASE)
+            if m:
+                try:
+                    val = float(m.group(1).replace(',', '.'))
+                    unit = m.group(2).upper().replace('B','')
+                    gb = val/1024.0 if unit.startswith('M') else val
+                    total_gb += gb
+                except Exception:
+                    pass
+        if total_gb > 0:
+            summary['final_size'] = f"{int(round(total_gb))} GB"
+
+    v_pretty = []
+    for _rep in vm_report_lines:
+        _src = _rep.split('->',1)[0].strip() if '->' in _rep else _rep
+        m = re.search(r'\(([^\s\)]+)\s*([GM]B?)\)', _rep, re.IGNORECASE) or re.search(r'\(([^\s\)]+)\s*([GM])\)', _rep, re.IGNORECASE)
+        if m:
+            try:
+                _val = float(m.group(1).replace(',', '.'))
+                _unit = m.group(2).upper().replace('B','')
+                _gb = _val/1024.0 if _unit.startswith('M') else _val
+                v_pretty.append(f"{_src} ({int(round(_gb))} GB)")
+            except Exception:
+                v_pretty.append(_src)
+        else:
+            v_pretty.append(_src)
+    summary['vm_report_lines'] = vm_report_lines
+    summary['vms_processed_pretty'] = v_pretty
     # --- HTML-Erstellung ---
     status_color = "#28a745" if "OK" in summary["status"] or "erfolgreich" in summary["status"].lower() else "#dc3545"
     parts = ["<html><head><meta charset='utf-8'><style>body{font-family:Arial,sans-serif;font-size:14px; margin:15px;}h2,h3,h4{color:#333} pre{font-family:monospace;background:#f8f8f8;padding:10px;border:1px solid #ddd;border-radius:4px;white-space:pre-wrap;word-wrap:break-word}ul{list-style-type:none;padding-left:0} li{margin-bottom:5px} li ul{margin-top:5px;margin-left:20px;list-style-type:circle}.error-vm{color:#b00020;font-weight:bold} .warn-vm{color:#b06a00;font-weight:bold} .info-vm{color:#00579b;font-weight:bold}</style></head><body>"]
@@ -172,14 +222,21 @@ def create_summary(log_content):
     if summary["final_size"] != "N/A":
         parts.append("<li><b>Groesse:</b> %s</li>" % html_escape(summary["final_size"]))
     parts.append("</ul>")
-
-    parts.append("<hr>")
-    parts.append("<h3>Verarbeitete VMs (%d)</h3>" % len(summary["vms_processed"]))
-    parts.append("<ul>%s</ul>" % "".join("<li>%s</li>" % html_escape(vm) for vm in summary["vms_processed"]) if summary["vms_processed"] else "<p>Keine.</p>")
     
-    parts.append("<h3>Informationen (%d)</h3>" % len(summary["infos"]))
-    parts.append("<ul>%s</ul>" % "".join('<li><strong class="info-vm">Kontext: %s</strong><ul><li>%s</li></ul></li>' % (html_escape(vm), html_escape(msg)) for vm, msg in summary["infos"]) if summary["infos"] else "<p>Keine.</p>")
+    parts.append("<hr>")
+    if summary.get("vms_processed_pretty"):
+        parts.append("<h3>Verarbeitete VMs (%d)</h3>" % len(summary["vms_processed_pretty"]))
+        parts.append("<ul>%s</ul>" % "".join("<li>%s</li>" % html_escape(line) for line in summary["vms_processed_pretty"]))
+    elif summary["vm_report_lines"]:
+        parts.append("<h3>Ergebnis der verarbeiteten VMs (%d)</h3>" % len(summary["vm_report_lines"]))
+        parts.append("<ul>%s</ul>" % "".join("<li>%s</li>" % html_escape(line) for line in summary["vm_report_lines"]))
+    elif summary.get("vms_processed"):
+        parts.append("<h3>Verarbeitete VMs (%d)</h3>" % len(summary["vms_processed"]))
+        parts.append("<ul>%s</ul>" % "".join("<li>%s</li>" % html_escape(vm) for vm in summary["vms_processed"]))
+    else:
+        parts.append("<h3>Verarbeitete VMs (0)</h3><p>Keine.</p>")
 
+    
     parts.append("<h3>Warnungen (%d)</h3>" % len(summary["warnings"]))
     parts.append("<ul>%s</ul>" % "".join('<li><strong class="warn-vm">VM: %s</strong><ul><li>%s</li></ul></li>' % (html_escape(vm), html_escape(msg)) for vm, msg in summary["warnings"]) if summary["warnings"] else "<p>Keine.</p>")
     parts.append("<h3>Fehler (%d)</h3>" % len(summary["errors"]))
@@ -193,6 +250,8 @@ def create_summary(log_content):
     
     is_important = len(summary["errors"]) > 0 or len(summary["warnings"]) > 0
     return "\n".join(parts), is_important
+
+# ... (Der Rest der Datei: build_message, _smtp_try_send, _openssl_fallback, send_email, und __main__ bleiben unverändert) ...
 
 def build_message(subject, html_body, to_csv, from_addr, is_important=False):
     """
