@@ -954,6 +954,7 @@ ghettoVCB() {
     VM_OK=0
     VM_FAILED=0
     VMDK_FAILED=0
+	VM_REPORT_LIST=""
 
 # --- START: Hinzufügen für detailliertes E-Mail-Log ---
     echo "Job-Konfiguration:" >> "${LOG_OUTPUT}"
@@ -1474,6 +1475,13 @@ fi
                 INDEP_VMDKS=""
 
                 endTimer
+				# NEU: Grösse des aktuellen Backups ermitteln und zur Liste hinzufügen
+                if [ -d "${VM_BACKUP_DIR}" ]; then
+                    VM_BACKUP_SIZE=$(du -sh "${VM_BACKUP_DIR}" | awk '{print $1}')
+                    NEW_LINE_WITH_NEWLINE=$(printf -- "- %s: %s\n" "${VM_NAME}" "${VM_BACKUP_SIZE}")
+                    VM_REPORT_LIST="${VM_REPORT_LIST}${NEW_LINE_WITH_NEWLINE}"
+                fi				
+				
                 if [[ ${SNAP_SUCCESS} -ne 1 ]] ; then
                     logger "info" "ERROR: Unable to backup ${VM_NAME} due to snapshot creation!\n"
                     [[ ${ENABLE_COMPRESSION} -eq 1 ]] && [[ $COMPRESSED_OK -eq 1 ]] || echo "ERROR: Unable to backup ${VM_NAME} due to snapshot creation" >> ${VM_BACKUP_DIR}/STATUS.error
@@ -1571,8 +1579,16 @@ fi
     #fi
 	
 # Füge direkt DAVOR diesen Block ein:
-    echo "Speicherplatz (Nachher):" >> "${LOG_OUTPUT}"
+        echo "Speicherplatz (Nachher):" >> "${LOG_OUTPUT}"
     echo "  - Ziel (${VM_BACKUP_VOLUME}): $(df -h "${VM_BACKUP_VOLUME}" 2>/dev/null | tail -n 1)" >> "${LOG_OUTPUT}"
+
+    # NEU: Schreibe die formatierte VM-Liste ins Log, damit sendmail.py sie parsen kann
+    echo "" >> "${LOG_OUTPUT}"
+    # Wir verwenden den Header "geklonten VMs", da sendmail.py diesen bereits kennt.
+    echo "--- Zusammenfassung der geklonten VMs ---" >> "${LOG_OUTPUT}"
+    echo -e "${VM_REPORT_LIST}" >> "${LOG_OUTPUT}"
+    echo "-----------------------------------------" >> "${LOG_OUTPUT}"
+
     unset IFS
 
     if [[ ${#VM_STARTUP_ORDER} -gt 0 ]] && [[ "${LOG_LEVEL}" != "dryrun" ]]; then
