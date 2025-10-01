@@ -1,18 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # GhettoVCB-GUI Sendmail (ESXi 6.0–8.03 kompatibel)
-# V7 - Chrigel & Gemini fuer GhettoGUI 7.6.3 29.09.2025
-# - NEU: Liest den "Zusammenfassung der geklonten VMs"-Block aus dem Log aus
-#        und stellt diesen an prominenter Stelle im HTML-Report dar,
-#        inklusive Quell-VM, Ziel-VM und Grösse.
-# - FIX: Behält die Abwärtskompatibilität bei; wenn der neue Block nicht
-#        im Log gefunden wird, wird die alte VM-Liste angezeigt.
+# V7.1 - Chrigel & Gemini fuer GhettoGUI 7.6.x 01.10.2025
+# - FIX: f-Strings durch .format() ersetzt für Python 2.7 Kompatibilität auf ESXi 6.x
 
 from __future__ import print_function
 
 import sys, os, argparse, socket, subprocess, time
 from datetime import datetime
-import re  # <— NEU (wird in create_summary gebraucht)
+import re
 
 
 # smtplib kann auf ESXi 6.0 fehlen
@@ -56,7 +52,7 @@ def create_summary(log_content):
         "status": "Unbekannt", "duration": "N/A", "start_time": "N/A", "end_time": "N/A",
         "final_size": "N/A",
         "vms_processed": [],
-        "vm_report_lines": [], # NEU: Für die formatierte Zusammenfassung
+        "vm_report_lines": [],
         "errors": [], "warnings": [], "infos": [],
         "config": [], "storage_before": [], "storage_after": [],
         "directory_listing": [], "detailed_log": []
@@ -67,12 +63,12 @@ def create_summary(log_content):
     storage_header = None
 
     in_vm_sum = False
-    vm_report_lines = []  # NEU: fuer VM-Zusammenfassung
+    vm_report_lines = []
 
     for line in log_content.splitlines():
         s = line.strip()
         s_lower = s.lower()
-        # --- NEU: VM-Zusammenfassung parsen ---
+        
         if ('zusammenfassung der geklonten vms' in s_lower) or ('summary of cloned vms' in s_lower):
             in_vm_sum = True
             continue
@@ -86,7 +82,6 @@ def create_summary(log_content):
                     if rep: vm_report_lines.append(rep)
             continue
 
-        # --- Parsing Logik ---
         if "final status:" in s_lower:
             summary["status"] = s[s_lower.find("final status:") + len("final status:"):].replace("#", "").strip()
             continue
@@ -128,20 +123,16 @@ def create_summary(log_content):
         if s.startswith("Endzeit:"):
             summary["end_time"] = s.split(":", 1)[-1].strip(); is_detailed_log = True; continue
         
-         
-        # --- KORREKTUR: Flexible Erkennung für den Start der Zusammenfassung ---
         if s.startswith("---") and ("zusammenfassung der" in s_lower or "groessen der" in s_lower):
             in_config=in_storage_before=in_storage_after=in_detailed=in_listing = False
             in_vm_summary = True
             continue
         
-        if s.startswith("---") and in_vm_summary: # Jede neue Sektion beendet die VM-Zusammenfassung
+        if s.startswith("---") and in_vm_summary:
             in_vm_summary = False
         
-        # Die Logik zum Sammeln der Zeilen
         if in_vm_summary:
             if s.startswith("-"):
-                # Behandelt aneinandergereihte Zeilen, indem sie am nächsten "-" aufgeteilt werden
                 entries = s.split('- ')
                 for entry in entries:
                     report_line = entry.strip()
@@ -175,7 +166,6 @@ def create_summary(log_content):
         except Exception:
             summary["duration"] = "Konnte nicht berechnet werden"
 
-    # --- NEU: Gesamtgroesse & Pretty-VM-Liste (immer GB) ---
     if summary.get('final_size', 'N/A') == 'N/A' and vm_report_lines:
         import re as _re
         total_gb = 0.0
@@ -190,7 +180,8 @@ def create_summary(log_content):
                 except Exception:
                     pass
         if total_gb > 0:
-            summary['final_size'] = f"{int(round(total_gb))} GB"
+            # KORREKTUR 1: f-String durch .format() ersetzt
+            summary['final_size'] = "{} GB".format(int(round(total_gb)))
 
     v_pretty = []
     for _rep in vm_report_lines:
@@ -201,14 +192,15 @@ def create_summary(log_content):
                 _val = float(m.group(1).replace(',', '.'))
                 _unit = m.group(2).upper().replace('B','')
                 _gb = _val/1024.0 if _unit.startswith('M') else _val
-                v_pretty.append(f"{_src} ({int(round(_gb))} GB)")
+                # KORREKTUR 2: f-String durch .format() ersetzt
+                v_pretty.append("{} ({} GB)".format(_src, int(round(_gb))))
             except Exception:
                 v_pretty.append(_src)
         else:
             v_pretty.append(_src)
     summary['vm_report_lines'] = vm_report_lines
     summary['vms_processed_pretty'] = v_pretty
-    # --- HTML-Erstellung ---
+    
     status_color = "#28a745" if "OK" in summary["status"] or "erfolgreich" in summary["status"].lower() else "#dc3545"
     parts = ["<html><head><meta charset='utf-8'><style>body{font-family:Arial,sans-serif;font-size:14px; margin:15px;}h2,h3,h4{color:#333} pre{font-family:monospace;background:#f8f8f8;padding:10px;border:1px solid #ddd;border-radius:4px;white-space:pre-wrap;word-wrap:break-word}ul{list-style-type:none;padding-left:0} li{margin-bottom:5px} li ul{margin-top:5px;margin-left:20px;list-style-type:circle}.error-vm{color:#b00020;font-weight:bold} .warn-vm{color:#b06a00;font-weight:bold} .info-vm{color:#00579b;font-weight:bold}</style></head><body>"]
     parts.append('<h2 style="color: %s;">Backup-Zusammenfassung</h2><hr>' % status_color)
@@ -250,8 +242,6 @@ def create_summary(log_content):
     
     is_important = len(summary["errors"]) > 0 or len(summary["warnings"]) > 0
     return "\n".join(parts), is_important
-
-# ... (Der Rest der Datei: build_message, _smtp_try_send, _openssl_fallback, send_email, und __main__ bleiben unverändert) ...
 
 def build_message(subject, html_body, to_csv, from_addr, is_important=False):
     """
