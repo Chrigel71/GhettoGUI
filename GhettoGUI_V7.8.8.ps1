@@ -3611,22 +3611,17 @@ $buttonBrowseRestoreSource.Add_Click({
     if ($radioRestoreFromBackup.Checked) {
         # --- Modus: Restore aus Backup-Ordner ---
         Write-GuiLog "Öffne Datastore-Auswahl für Backup-Quelle..."
-        # KORREKTUR: SSH-Session wird übergeben und der Rückgabewert wird geparst
         $selection = Show-DatastoreSelectionDialog -SSHSession $Global:ESXiSession
         if (-not $selection) { Write-GuiLog "Auswahl abgebrochen."; return }
 
-        $currentPath = ""
-        if ($selection -match '\((/vmfs/volumes/.+?)\)') {
-            $currentPath = $Matches[1]
-        } else {
-            Write-GuiLog "Konnte Pfad aus Auswahl nicht extrahieren. Breche ab."; return
-        }
-        
+        $currentPath = $selection
         if (-not $currentPath) { Write-GuiLog "Auswahl abgebrochen."; return }
 
+        # --- START KORREKTUR: Robuste Navigations-Schleife ---
         while ($true) {
             $dialogOutput = Show-DirectorySelectionDialog -Title "Navigiere zum Backup-Ordner" -BasePath $currentPath -SshSession $Global:ESXiSession
             
+            # Benutzer klickt "Diesen Ordner auswählen"
             if ($dialogOutput.Result -eq 'Yes') {
                 $textboxRestoreSourcePath.Text = $currentPath
                 Write-GuiLog "Backup-Quelle für Restore ausgewählt: $currentPath"
@@ -3636,19 +3631,30 @@ $buttonBrowseRestoreSource.Add_Click({
                 $textboxRestoreNewVmName.Text = "$($originalVmName)-Restored"
                 break
             }
-            elseif ($dialogOutput.Result -eq 'OK') {
-                $selectedItem = $dialogOutput.SelectedItem
+            # Benutzer klickt "Öffnen" oder doppelklickt
+            elseif ($dialogOutput.Result -eq 'OK' -and $dialogOutput.SelectedItem) {
+                $selectedItem = $dialogOutput.SelectedItem.ToString()
+                
                 if ($selectedItem -eq ".. (Eine Ebene höher)") {
-                    if ($currentPath.Length -gt 15) { $currentPath = Split-Path -Path $currentPath }
+                    if ($currentPath.Length -gt ($selection.Length)) { $currentPath = Split-Path -Path $currentPath }
                 } else {
-                    $currentPath = "$currentPath/$selectedItem"
+                    $potentialNewPath = "$currentPath/$selectedItem"
+                    # Prüfe auf dem Host, ob das ausgewählte Element ein Verzeichnis ist
+                    $isDirResult = Invoke-SSHCommand -SSHSession $Global:ESXiSession -Command "if [ -d '$potentialNewPath' ]; then echo 'true'; fi"
+                    if (($isDirResult.Output -join '') -eq 'true') {
+                        $currentPath = $potentialNewPath # Nur navigieren, wenn es ein Ordner ist
+                    } else {
+                        Write-GuiLog "Auswahl '$selectedItem' ist kein Ordner. Navigation nicht möglich."
+                    }
                 }
             }
+            # Benutzer klickt "Abbrechen" oder schliesst das Fenster
             else {
                 Write-GuiLog "Backup-Auswahl abgebrochen."
                 break
             }
         }
+        # --- ENDE KORREKTUR ---
     } else {
         # --- Modus: Klon von laufender VM ---
         Write-GuiLog "Öffne VM-Auswahl zum Klonen..."
@@ -6151,12 +6157,13 @@ function Show-DirectorySelectionDialog {
     
     $listBox = New-Object System.Windows.Forms.ListBox; $listBox.Dock = 'Top'; $listBox.Height = 250; $listBox.Margin = New-Object System.Windows.Forms.Padding(10)
     
-    # NEU: Button-Panel für flexible Steuerung
     $buttonOpen = New-Object System.Windows.Forms.Button; $buttonOpen.Text = "Öffnen"; $buttonOpen.DialogResult = 'OK'; $buttonOpen.Enabled = $false
-        $buttonSelectCurrent = New-Object System.Windows.Forms.Button; $buttonSelectCurrent.Text = "Diesen Ordner auswählen"; $buttonSelectCurrent.DialogResult = 'Yes' # Spezieller DialogResult für diese Aktion
-        $buttonSelectCurrent.AutoSize = $true # NEU: Button-Grösse automatisch anpassen
-        $buttonCancel = New-Object System.Windows.Forms.Button; $buttonCancel.Text = "Abbrechen"; $buttonCancel.DialogResult = 'Cancel'
-	
+    $buttonSelectCurrent = New-Object System.Windows.Forms.Button; $buttonSelectCurrent.Text = "Diesen Ordner auswählen"; $buttonSelectCurrent.DialogResult = 'Yes'
+    
+    # --- KORREKTUR: Feste Grösse statt AutoSize ---
+    $buttonSelectCurrent.Size = New-Object System.Drawing.Size(160, 25)
+
+    $buttonCancel = New-Object System.Windows.Forms.Button; $buttonCancel.Text = "Abbrechen"; $buttonCancel.DialogResult = 'Cancel'
 	
     $flowPanel = New-Object System.Windows.Forms.FlowLayoutPanel; $flowPanel.Dock = 'Bottom'; $flowPanel.FlowDirection = 'RightToLeft'; $flowPanel.Height = 40
     $flowPanel.Controls.AddRange(@($buttonCancel, $buttonOpen, $buttonSelectCurrent))
@@ -6170,7 +6177,6 @@ function Show-DirectorySelectionDialog {
     $selectionDialog.Add_Shown({
         $selectionDialog.Cursor = [System.Windows.Forms.Cursors]::WaitCursor
         try {
-            # Wir fügen einen ".." Eintrag hinzu, um eine Ebene nach oben zu navigieren
             $command = "if [ -d ""$BasePath"" ]; then ls ""$BasePath""; fi"
             $result = Invoke-SSHCommand -SSHSession $SshSession -Command $command
             if ($result.ExitStatus -eq 0) {
@@ -6190,7 +6196,6 @@ function Show-DirectorySelectionDialog {
         }
     })
 
-    # Wir geben das Ergebnis und das ausgewählte Item zurück
     $dialogResult = $selectionDialog.ShowDialog($form)
     return @{ Result = $dialogResult; SelectedItem = $listBox.SelectedItem }
 }
