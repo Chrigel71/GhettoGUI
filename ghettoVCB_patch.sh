@@ -1711,7 +1711,17 @@ sendMail() {
         if [[ "${EMAIL_ERRORS_TO}" != "" ]] && [[ "${LOG_STATUS}" != "OK" ]]; then
             if [[ "${RECIPIENTS}" == "" ]]; then RECIPIENTS="${EMAIL_ERRORS_TO}"; else RECIPIENTS="${RECIPIENTS},${EMAIL_ERRORS_TO}"; fi
         fi
-        if [[ -z "${RECIPIENTS}" ]]; then logger "info" "No email recipients defined."; return; fi
+        if [[ -z "${RECIPIENTS}" ]]; then logger "info" "No email recipients defined."; return; }
+
+        # NEU: Prüfe, ob AUTH-Benutzer gesetzt ist. Wenn ja, verwende diesen als Absender.
+        # Dies ist die empfohlene Methode für M365: "Sende als der authentifizierte Benutzer".
+        local MAIL_FROM="${EMAIL_FROM}"
+        if [[ -n "${EMAIL_USER_NAME}" ]]; then
+             logger "info" "INFO: Using EMAIL_USER_NAME as authenticated MAIL_FROM for M365/Spam compatibility."
+             # Wir nehmen den Benutzernamen, da er meist die komplette E-Mail-Adresse enthält.
+             MAIL_FROM="${EMAIL_USER_NAME}"
+        fi
+
 
         # ### FINALE LÖSUNG (ash-kompatibel): Skript nach /tmp kopieren und Argumente direkt übergeben ###
         local TMP_EXEC_PATH="/tmp/sendmail_exec_$$"
@@ -1724,11 +1734,10 @@ sendMail() {
         
         logger "info" "Calling mail script via 'python ${TMP_EXEC_PATH}' for recipients: ${RECIPIENTS}..."
         
-        # Führe den Befehl direkt mit den Variablen aus. Die Shell kümmert sich um das korrekte Quoting.
-        # Wir übergeben -u und -p immer; das Python-Skript kann mit leeren Werten umgehen.
-        # Wir wandeln die kommagetrennten Empfänger in eine leerzeichengetrennte Liste für die Kommandozeile um.
+        # Führe den Befehl direkt mit den Variablen aus.
+        # WICHTIG: Verwende MAIL_FROM, nicht EMAIL_FROM.
         python "${TMP_EXEC_PATH}" \
-            -f "${EMAIL_FROM}" \
+            -f "${MAIL_FROM}" \
             -s "${EMAIL_SERVER}" \
             -S "${EMAIL_SERVER_PORT}" \
             -j "${SUBJECT}" \
