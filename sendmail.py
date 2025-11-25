@@ -131,7 +131,7 @@ def create_summary(log_content):
         if s.startswith("---") and in_vm_summary:
             in_vm_summary = False
         
-        if in_vm_summary:
+        if in_vm_sum:
             if s.startswith("-"):
                 entries = s.split('- ')
                 for entry in entries:
@@ -165,12 +165,18 @@ def create_summary(log_content):
             summary["duration"] = "%d Minuten, %d Sekunden" % (minutes, seconds)
         except Exception:
             summary["duration"] = "Konnte nicht berechnet werden"
-
+    
+    # KORREKTUR: Robusterer Regex für die Grössenerkennung (mit und ohne Klammern)
     if summary.get('final_size', 'N/A') == 'N/A' and vm_report_lines:
         import re as _re
         total_gb = 0.0
         for _rep in vm_report_lines:
-            m = _re.search(r'\(([^\s\)]+)\s*([GM]B?)\)', _rep, _re.IGNORECASE) or _re.search(r'\(([^\s\)]+)\s*([GM])\)', _rep, _re.IGNORECASE)
+            # Versuche das neue Format (VM-NAME: 40.0G) zu matchen
+            m = _re.search(r':\s*([0-9\.]+)\s*([GM])B?', _rep, _re.IGNORECASE)
+            # Wenn nicht gefunden, versuche das alte Format (in Klammern)
+            if not m:
+                m = _re.search(r'\(([^\s\)]+)\s*([GM]B?)\)', _rep, _re.IGNORECASE) or _re.search(r'\(([^\s\)]+)\s*([GM])\)', _rep, _re.IGNORECASE)
+            
             if m:
                 try:
                     val = float(m.group(1).replace(',', '.'))
@@ -180,20 +186,22 @@ def create_summary(log_content):
                 except Exception:
                     pass
         if total_gb > 0:
-            # KORREKTUR 1: f-String durch .format() ersetzt
             summary['final_size'] = "{} GB".format(int(round(total_gb)))
 
     v_pretty = []
     for _rep in vm_report_lines:
         _src = _rep.split('->',1)[0].strip() if '->' in _rep else _rep
-        m = re.search(r'\(([^\s\)]+)\s*([GM]B?)\)', _rep, re.IGNORECASE) or re.search(r'\(([^\s\)]+)\s*([GM])\)', _rep, re.IGNORECASE)
+        # Auch hier den erweiterten Regex verwenden, um die schöner formatierte Zeile zu erzeugen
+        m = re.search(r':\s*([0-9\.]+)\s*([GM])B?', _rep, re.IGNORECASE)
+        if not m:
+             m = re.search(r'\(([^\s\)]+)\s*([GM]B?)\)', _rep, re.IGNORECASE) or re.search(r'\(([^\s\)]+)\s*([GM])\)', _rep, re.IGNORECASE)
+
         if m:
             try:
                 _val = float(m.group(1).replace(',', '.'))
                 _unit = m.group(2).upper().replace('B','')
                 _gb = _val/1024.0 if _unit.startswith('M') else _val
-                # KORREKTUR 2: f-String durch .format() ersetzt
-                v_pretty.append("{} ({} GB)".format(_src, int(round(_gb))))
+                v_pretty.append("{} ({} GB)".format(_src.split(':')[0], int(round(_gb))))
             except Exception:
                 v_pretty.append(_src)
         else:
@@ -201,7 +209,12 @@ def create_summary(log_content):
     summary['vm_report_lines'] = vm_report_lines
     summary['vms_processed_pretty'] = v_pretty
     
-    status_color = "#28a745" if "OK" in summary["status"] or "erfolgreich" in summary["status"].lower() else "#dc3545"
+    status_text = summary["status"].lower()
+    if "ok" in status_text or "erfolgreich" in status_text:
+        status_color = "#28a745" # Grün
+    else:
+        status_color = "#dc3545" # Rot
+    
     parts = ["<html><head><meta charset='utf-8'><style>body{font-family:Arial,sans-serif;font-size:14px; margin:15px;}h2,h3,h4{color:#333} pre{font-family:monospace;background:#f8f8f8;padding:10px;border:1px solid #ddd;border-radius:4px;white-space:pre-wrap;word-wrap:break-word}ul{list-style-type:none;padding-left:0} li{margin-bottom:5px} li ul{margin-top:5px;margin-left:20px;list-style-type:circle}.error-vm{color:#b00020;font-weight:bold} .warn-vm{color:#b06a00;font-weight:bold} .info-vm{color:#00579b;font-weight:bold}</style></head><body>"]
     parts.append('<h2 style="color: %s;">Backup-Zusammenfassung</h2><hr>' % status_color)
     status_html = '<span style="color: %s; font-weight: bold;">%s</span>' % (status_color, html_escape(summary["status"]))
@@ -236,7 +249,7 @@ def create_summary(log_content):
         
     if summary["config"]: parts.append("<hr><h4>Konfiguration:</h4><ul>%s</ul>" % "".join("<li>%s</li>" % html_escape(i) for i in summary["config"]))
     if summary["storage_before"] or summary["storage_after"]: parts.append("<h4>Speicherplatz:</h4><pre>"); parts.append("<b>Nach dem Job:</b>\n" + "\n".join(html_escape(s) for s in summary["storage_after"]) if summary["storage_after"] else ""); parts.append("\n<b>Vor dem Job:</b>\n" + "\n".join(html_escape(s) for s in summary["storage_before"]) if summary["storage_before"] else ""); parts.append("</pre>")
-    if summary["directory_listing"]: parts.append("<hr><h3>Inhalt des Ziel-Verzeichnisses</h3><pre>%s</pre>" % "\n".join(html_escape(x) for x in summary["directory_listing"]))
+    if summary["directory_listing"]: parts.append("<hr><h3>Detailliertes Verzeichnis-Listing</h3><pre>%s</pre>" % "\n".join(html_escape(x) for x in summary["directory_listing"]))
     if summary["detailed_log"]: parts.append("<hr><h3>Detailliertes Prozess-Log</h3><pre>%s</pre>" % "\n".join(html_escape(x) for x in summary["detailed_log"]))
     parts.append("</body></html>")
     

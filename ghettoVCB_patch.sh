@@ -1711,7 +1711,7 @@ sendMail() {
         if [[ "${EMAIL_ERRORS_TO}" != "" ]] && [[ "${LOG_STATUS}" != "OK" ]]; then
             if [[ "${RECIPIENTS}" == "" ]]; then RECIPIENTS="${EMAIL_ERRORS_TO}"; else RECIPIENTS="${RECIPIENTS},${EMAIL_ERRORS_TO}"; fi
         fi
-        if [[ -z "${RECIPIENTS}" ]]; then logger "info" "No email recipients defined."; return; }
+        if [[ -z "${RECIPIENTS}" ]]; then logger "info" "No email recipients defined."; return; fi
 
         # NEU: Prüfe, ob AUTH-Benutzer gesetzt ist. Wenn ja, verwende diesen als Absender.
         # Dies ist die empfohlene Methode für M365: "Sende als der authentifizierte Benutzer".
@@ -1735,7 +1735,7 @@ sendMail() {
         logger "info" "Calling mail script via 'python ${TMP_EXEC_PATH}' for recipients: ${RECIPIENTS}..."
         
         # Führe den Befehl direkt mit den Variablen aus.
-        # WICHTIG: Verwende MAIL_FROM, nicht EMAIL_FROM.
+        # WICHTIG: Verwende MAIL_FROM (AUTH-User), nicht EMAIL_FROM.
         python "${TMP_EXEC_PATH}" \
             -f "${MAIL_FROM}" \
             -s "${EMAIL_SERVER}" \
