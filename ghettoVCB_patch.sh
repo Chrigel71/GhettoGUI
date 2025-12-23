@@ -1322,17 +1322,18 @@ VM_NVRAM_FILE=$(grep "nvram" "${VMX_PATH}" | awk -F "\"" '{print $2}')
                         echo ${VMDK} | grep "^/vmfs/volumes" > /dev/null 2>&1
                         if [[ $? -eq 0 ]] ; then
                             SOURCE_VMDK="${VMDK}"
-                            DS_UUID="$(echo ${VMDK#/vmfs/volumes/*})"
-                            DS_UUID="$(echo ${DS_UUID%/*/*})"
-                            VMDK_DISK="$(echo ${VMDK##/*/})"
-                            mkdir -p "${VM_BACKUP_DIR}/${DS_UUID}"
+                            # NEU: Extrahiere nur den VMDK-Dateinamen aus dem absoluten Pfad
+                            VMDK_DISK_NAME="$(basename "${VMDK}")"
 
-							# IMMER bereinigen: „-000001.vmdk“ → „.vmdk“
-							CLEAN_VMDK_DISK=$(echo "${VMDK_DISK}" | sed 's/-[0-9]\{6\}\.vmdk$/.vmdk/')
-							DESTINATION_VMDK="${VM_BACKUP_DIR}/${DS_UUID}/${CLEAN_VMDK_DISK}"
+                            # IMMER bereinigen: „-000001.vmdk“ → „.vmdk“
+                            CLEAN_VMDK_DISK=$(echo "${VMDK_DISK_NAME}" | sed 's/-[0-9]\{6\}\.vmdk$/.vmdk/')
+                            
+                            # Ziel ist IM Backup-Ordner, ohne Unterordner für den Datastore, 
+                            # wenn USE_FIXED_BACKUP_DIR=1 (was die GUI bevorzugt)
+                            DESTINATION_VMDK="${VM_BACKUP_DIR}/${CLEAN_VMDK_DISK}"
                          
                         else
-							SOURCE_VMDK="${VMX_DIR}/${VMDK}"
+                            SOURCE_VMDK="${VMX_DIR}/${VMDK}"
 
 							# IMMER bereinigen: „-000001.vmdk“ → „.vmdk“
 							CLEAN_VMDK=$(echo "${VMDK}" | sed 's/-[0-9]\{6\}\.vmdk$/.vmdk/')
