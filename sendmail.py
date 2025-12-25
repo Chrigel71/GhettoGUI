@@ -1,14 +1,19 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# GhettoVCB-GUI Sendmail (ESXi 6.0–8.03 kompatibel)
-# V7.3 - Chrigel & Gemini - Mit Argument fuer Display Name (-N)
+# GhettoVCB-GUI Sendmail (ESXi 6.0 - 8.0 Compatible)
+# V7.6 - Full HTML Report + ESXi 6 Netcat Fix
+#
+# Features:
+# - Full HTML Summary (Parsing of GhettoVCB Logs)
+# - Display Name Support (-N)
+# - ESXi 6.0 Fix: Prioritizes 'nc' on Port 25 to avoid OpenSSL/Broken Pipe errors
 
 from __future__ import print_function
 import sys, os, argparse, socket, subprocess, time
 from datetime import datetime
 import re
 
-# Standardwert, falls kein Argument uebergeben wird
+# Standardwert
 DEFAULT_DISPLAY_NAME = "ESXi Backup"
 
 try: import smtplib
@@ -35,7 +40,7 @@ def html_escape(text):
 
 def create_summary(log_content):
     """
-    Erzeugt eine universelle HTML-Zusammenfassung.
+    Erzeugt die volle HTML-Zusammenfassung (Original V7.3 Logic).
     """
     summary = {
         "status": "Unbekannt", "duration": "N/A", "start_time": "N/A", "end_time": "N/A",
@@ -173,14 +178,10 @@ def create_summary(log_content):
     return "\n".join(parts), (len(summary["errors"]) > 0 or len(summary["warnings"]) > 0)
 
 def build_message(subject, html_body, to_csv, from_addr, display_name, is_important=False):
-    """ Erzeugt MIME mit Display Name """
-    try: body_decoded = html_body.decode('utf-8', 'replace') if isinstance(html_body, bytes) else html_body
-    except NameError: body_decoded = html_body
-
+    # Versuch mit Python Email Lib (falls vorhanden)
     if HAVE_EMAIL:
         try:
             msg = MIMEMultipart()
-            # NEU: Display Name
             try:
                 dn_header = Header(display_name, 'utf-8').encode()
                 msg['From'] = formataddr((dn_header, from_addr))
@@ -192,16 +193,24 @@ def build_message(subject, html_body, to_csv, from_addr, display_name, is_import
             try: msg['Date'] = formatdate(localtime=True)
             except: pass
             if is_important: msg['Importance'] = 'high'; msg['X-Priority'] = '1'; msg['X-MSMail-Priority'] = 'High'
-            msg.attach(MIMEText(body_decoded, 'html', 'utf-8'))
+            msg.attach(MIMEText(html_body, 'html', 'utf-8'))
             return msg.as_string()
         except: pass
 
-    # Fallback
+    # Fallback: Manueller Header Bau
     date_hdr = time.strftime('%a, %d %b %Y %H:%M:%S +0000', time.gmtime())
     full_from = '"%s" <%s>' % (display_name, from_addr)
-    headers = ['From: %s' % full_from, 'To: %s' % to_csv, 'Subject: %s' % subject, 'Date: %s' % date_hdr]
+    headers = []
+    headers.append('From: %s' % full_from)
+    headers.append('To: %s' % to_csv)
+    headers.append('Subject: %s' % subject)
+    headers.append('Date: %s' % date_hdr)
     if is_important: headers.append('Importance: high'); headers.append('X-Priority: 1')
-    headers.extend(['MIME-Version: 1.0', 'Content-Type: text/html; charset=utf-8', 'Content-Transfer-Encoding: 8bit', '', body_decoded])
+    headers.append('MIME-Version: 1.0')
+    headers.append('Content-Type: text/html; charset=utf-8')
+    headers.append('Content-Transfer-Encoding: 8bit')
+    headers.append('') 
+    headers.append(html_body)
     return "\r\n".join(headers)
 
 def _split_recipients(to_str):
@@ -211,43 +220,32 @@ def _split_recipients(to_str):
 
 def _smtp_try_send(subject, html_body, to_csv, from_addr, display_name, host, port, user, pwd, tls_mode, auth_mode, is_important=False):
     if smtplib is None: sys.stderr.write("WARN: smtplib not available; skipping\n"); return False
-    raw = build_message(subject, html_body, to_csv, from_addr, display_name, is_important)
-    server = None
+    # Auf ESXi 6 meist kaputt, aber der Vollstaendigkeit halber drin
     try:
-        if tls_mode == 'ssl':
-            if hasattr(smtplib, 'SMTP_SSL'): server = smtplib.SMTP_SSL(host, port, timeout=30); server.ehlo()
-            else: raise RuntimeError("SMTP_SSL not available.")
-        else:
-            server = smtplib.SMTP(host, port, timeout=30); server.ehlo()
-            if tls_mode in ('auto', 'starttls'):
-                try: has_tls = server.has_extn('starttls') or server.has_extn('STARTTLS')
-                except: has_tls = False
-                if has_tls: server.starttls(); server.ehlo()
-                elif tls_mode == 'starttls': raise RuntimeError("Server no STARTTLS.")
-        do_auth = bool(user and pwd) if auth_mode in ('auto', 'login', 'plain') else False
-        if do_auth: server.login(user, pwd)
-        # WICHTIG: sendmail braucht reinen from_addr als Envelope, aber im Header ist der Name
+        raw = build_message(subject, html_body, to_csv, from_addr, display_name, is_important)
+        server = smtplib.SMTP(host, port, timeout=30); server.ehlo()
+        if tls_mode in ('auto', 'starttls'):
+            try: has_tls = server.has_extn('starttls') or server.has_extn('STARTTLS')
+            except: has_tls = False
+            if has_tls: server.starttls(); server.ehlo()
+        if user and pwd: server.login(user, pwd)
         server.sendmail(from_addr, _split_recipients(to_csv), raw)
         try: server.quit()
         except: pass
-        sys.stdout.write("INFO: Email successfully sent to %s\n" % to_csv)
+        sys.stdout.write("INFO: Email successfully sent (smtplib)\n")
         return True
-    except Exception as e:
-        if server: 
-            try: server.quit() 
-            except: pass
-        sys.stderr.write("WARN: smtplib failed: %s\n" % str(e))
-        return False
+    except: return False
 
 def _openssl_fallback(subject, html_body, to_csv, from_addr, display_name, host, port, user, pwd, tls_mode, auth_mode, is_important=False):
     recipients = _split_recipients(to_csv)
     if not recipients: raise RuntimeError("No recipients.")
+    
     raw_email_content = build_message(subject, html_body, to_csv, from_addr, display_name, is_important)
     
     try: import base64 as b64mod
     except: b64mod = None
     def b64(s):
-        if b64mod is None: raise RuntimeError("No base64.")
+        if b64mod is None: raise RuntimeError("No base64 available.")
         if not isinstance(s, _basestr): s = str(s)
         out = b64mod.b64encode(s.encode('utf-8'))
         try: return out.decode('ascii')
@@ -255,31 +253,73 @@ def _openssl_fallback(subject, html_body, to_csv, from_addr, display_name, host,
 
     ehlo = (socket.gethostname().split('.')[0] or 'esxi')
     commands = ["EHLO %s\r\n" % ehlo]
-    if bool(user and pwd):
-        commands.append("AUTH LOGIN\r\n"); commands.append("%s\r\n" % b64(user)); commands.append("%s\r\n" % b64(pwd))
+    
+    if user and pwd:
+        commands.append("AUTH LOGIN\r\n")
+        commands.append("%s\r\n" % b64(user))
+        commands.append("%s\r\n" % b64(pwd))
     
     commands.append("MAIL FROM:<%s>\r\n" % from_addr)
     for r in recipients: commands.append("RCPT TO:<%s>\r\n" % r)
     commands.append("DATA\r\n")
+    
     if isinstance(raw_email_content, bytes):
         try: raw_email_content = raw_email_content.decode('utf-8')
         except: raw_email_content = str(raw_email_content)
-    normalized = raw_email_content.replace('\r\n', '\n').replace('\r', '\n')
-    commands.append(normalized.replace('\n', '\r\n') + "\r\n.\r\n"); commands.append("QUIT\r\n")
-
-    def run_cmd(cmd_arr):
-        p = subprocess.Popen(cmd_arr, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        time.sleep(0.5)
-        for c in commands: p.stdin.write(c.encode('utf-8')); p.stdin.flush(); time.sleep(0.2)
-        p.stdin.close(); out = p.stdout.read(); err = p.stderr.read(); p.wait(); return out, err
-
-    tls_mode = (tls_mode or 'auto').lower()
-    if tls_mode in ('auto', 'starttls'): cmd = ['/bin/openssl', 's_client', '-quiet', '-crlf', '-starttls', 'smtp', '-connect', '%s:%s' % (host, port)]
-    elif tls_mode == 'ssl': cmd = ['/bin/openssl', 's_client', '-quiet', '-crlf', '-connect', '%s:%s' % (host, port)]
-    else: cmd = ['/bin/nc', host, str(port)]
     
-    run_cmd(cmd)
-    sys.stdout.write("INFO: Email successfully sent to %s (fallback)\n" % to_csv)
+    normalized = raw_email_content.replace('\r\n', '\n').replace('\r', '\n')
+    commands.append(normalized.replace('\n', '\r\n') + "\r\n.\r\n")
+    commands.append("QUIT\r\n")
+
+    def run_interactive(cmd_list):
+        p = subprocess.Popen(cmd_list, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            for c in commands:
+                p.stdin.write(c.encode('utf-8'))
+                p.stdin.flush()
+                time.sleep(0.1) # WICHTIG fuer nc
+        except IOError: pass # Broken Pipe catch
+        except Exception: pass
+            
+        try: p.stdin.close()
+        except: pass
+        out = p.stdout.read()
+        err = p.stderr.read()
+        p.wait()
+        return out, err
+
+    # --- ESXi 6 LOGIC (NC FALLBACK) ---
+    use_nc = False
+    if port == 25 and tls_mode != 'ssl': use_nc = True
+    
+    if use_nc:
+        sys.stdout.write("INFO: Port 25 on ESXi 6 -> forcing 'nc' fallback...\n")
+        cmd = ['/bin/nc', host, str(port)]
+    else:
+        if tls_mode == 'ssl': cmd = ['/bin/openssl', 's_client', '-quiet', '-crlf', '-connect', '%s:%s' % (host, port)]
+        else: cmd = ['/bin/openssl', 's_client', '-quiet', '-crlf', '-starttls', 'smtp', '-connect', '%s:%s' % (host, port)]
+
+    out, err = run_interactive(cmd)
+    out_str = str(out)
+    
+    if "250" in out_str or "queued" in out_str.lower() or "ok" in out_str.lower():
+         sys.stdout.write("INFO: Email successfully sent (fallback)\n")
+         return True
+    
+    # Retry nc if openssl failed
+    if not use_nc and ("connect:errno" in str(err) or "handshake failure" in str(err) or "Broken pipe" in str(err)):
+        sys.stderr.write("WARN: OpenSSL failed. Retrying with nc...\n")
+        cmd = ['/bin/nc', host, str(port)]
+        out, err = run_interactive(cmd)
+        if "250" in str(out) or "queued" in str(out).lower():
+             sys.stdout.write("INFO: Email successfully sent (nc fallback)\n")
+             return True
+
+    if "250" not in str(out) and "queued" not in str(out).lower():
+         sys.stderr.write("DEBUG OUT: %s\n" % str(out))
+         sys.stderr.write("DEBUG ERR: %s\n" % str(err))
+         raise RuntimeError("SMTP conversation failed")
+         
     return True
 
 def send_email(subject, body, to_addr, from_addr, display_name, smtp_server, smtp_port_str, user, password, tls_mode, auth_mode, openssl_fallback=True, is_important=False):
@@ -301,7 +341,6 @@ if __name__ == '__main__':
     parser.add_argument('-p', dest='password')
     parser.add_argument('-j', dest='subject', required=True)
     parser.add_argument('-m', dest='message_file', required=True)
-    # HIER IST DER NEUE PARAMETER:
     parser.add_argument('-N', dest='display_name', default=DEFAULT_DISPLAY_NAME)
     parser.add_argument('recipients', nargs='+')
     parser.add_argument('--tls', default='auto')
@@ -313,7 +352,7 @@ if __name__ == '__main__':
 
     try:
         with open(args.message_file, 'r') as f: log_content = f.read()
-    except: sys.exit(1)
+    except: log_content = "Log file content read error."
 
     email_body, is_important = create_summary(log_content)
     openssl_fb = (not args.no_openssl_fallback)
