@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>Bedienungsanleitung - GhettoGUI V8.0.0</title>
+<style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; line-height: 1.6; color: #333; max-width: 900px; margin: 20px auto; padding: 0 15px; }
+    h1, h2, h3, h4 { color: #005a9c; border-bottom: 2px solid #eee; padding-bottom: 5px; }
+    code { background-color: #f3f4f6; padding: 2px 5px; border-radius: 4px; font-family: "Courier New", Courier, monospace; }
+    a { color: #007bff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    ul, ol { padding-left: 20px; }
+    li { margin-bottom: 10px; }
+    strong { color: #1d1d1d; }
+    hr { border: 0; height: 1px; background: #ddd; }
+    .note { background-color: #fff3cd; border-left: 5px solid #ffeeba; padding: 15px; margin: 20px 0; border-radius: 4px; }
+    /* Inhaltsverzeichnis */
+    .toc { background-color: #f9f9f9; border: 1px solid #eee; padding: 15px 25px; border-radius: 5px; margin-bottom: 25px; }
+    .toc h3 { border-bottom: none; margin-top: 0; }
+    .toc ul { padding-left: 15px; }
+    .toc ul li { margin-bottom: 5px; }
+    /* Button-Erklärungen */
+    .button-def { margin-bottom: 15px; }
+    .button-def strong { display: block; font-size: 1.1em; color: #1d1d1d; }
+    .button-def p { margin-top: 3px; margin-left: 10px; }
+    
+    /* ================== NEU: HINZUGEFÜGT FÜR SCREENSHOTS ================== */
+    .screenshot-placeholder { 
+        display: block; 
+        text-align: center; 
+        padding: 20px; 
+        border: 1px dashed #ccc; 
+        margin: 25px 0; 
+        background-color: #f9f9f9; 
+    }
+    .screenshot-placeholder img {
+        max-width: 100%;
+        height: auto;
+        border: 1px solid #ddd;
+    }
+    /* =================================================================== */
+</style>
+</head>
+
+<body>
+
+<h1>Bedienungsanleitung: GhettoGUI V8.0.0</h1>
+
+<h2>Navigation</h2>
+<ul>
+    <li><a href="index.html">Zurück zur Startseite</a></li>
+    <li><a href="Bedienungsanleitung.html">Bedienungsanleitung</a> (Diese Seite)</li>
+</ul>
+
+<hr>
+
+<div class="toc">
+    <h3>Inhaltsverzeichnis</h3>
+    <ul>
+        <li><a href="#tab-esxi">Tab: ESXi Manager</a>
+            <ul>
+                <li><a href="#esxi-verbindung">Verbindung & Hauptkonfiguration</a></li>
+                <li><a href="#esxi-ghetto-konfig">GhettoVCB Konfiguration (Backup-Einstellungen)</a></li>
+                <li><a href="#esxi-installation">Installation & Aktionen (Rechte Seite)</a></li>
+                <li><a href="#esxi-zeitplanung">Zeitplanung (ESXi Cron)</a></li>
+                <li><a href="#esxi-email">E-Mail Benachrichtigung (ESXi)</a></li>
+                <li><a href="#esxi-aktionen">Backup-Aktionen (ESXi)</a></li>
+            </ul>
+        </li>
+        <li><a href="#tab-proxmox">Tab: Proxmox Manager</a>
+            <ul>
+                <li><a href="#proxmox-verbindung">Verbindung</a></li>
+                <li><a href="#proxmox-steuerung">Backup-Steuerung</a></li>
+                <li><a href="#proxmox-storage">Storage Management</a></li>
+                <li><a href="#proxmox-zeitplanung">Zeitplanung (Proxmox API)</a></li>
+            </ul>
+        </li>
+        <li><a href="#ssh-konsole">Fenster: SSH-Konsole & Assistenten</a>
+             <ul>
+                <li><a href="#ssh-assistenten">Einrichtungs-Assistenten</a></li>
+                <li><a href="#ssh-management">Host & Job Management</a></li>
+                <li><a href="#ssh-cron">Geplante Tasks (Cron)</a></li>
+            </ul>
+        </li>
+    </ul>
+</div>
+
+<hr>
+
+<h2 id="tab-esxi">Tab: ESXi Manager</h2>
+<p>Dieser Tab steuert alle Funktionen, die sich auf VMware ESXi und das GhettoVCB-Skript beziehen.</p>
+
+<div class="screenshot-placeholder">
+    <img src="Maingui.png" alt="GhettoGUI ESXi Manager Hauptfenster">
+</div>
+<h3 id="esxi-verbindung">Verbindung & Hauptkonfiguration</h3>
+<div class="button-def">
+    <strong>Posh-SSH prüfen</strong>
+    <p>Prüft, ob das PowerShell-Modul <code>Posh-SSH</code> auf Ihrem PC installiert ist. Falls nicht, bietet es die automatische Installation an (Internetverbindung erforderlich). Zeigt bei Erfolg die Versionen von PowerShell und Posh-SSH an.</p>
+</div>
+<div class="button-def">
+    <strong>Verbinden</strong>
+    <p>Baut die Haupt-SSH-Verbindung zum eingetragenen ESXi Host auf. Fragt nach dem Passwort und speichert die Anmeldeinformationen für die Dauer der Sitzung. Lädt nach Erfolg die Netzwerk-Interfaces (für den Traffic-Monitor) und synchronisiert die VM-Auswahl, falls ein Job geladen ist.</p>
+</div>
+<div class="button-def">
+    <strong>Trennen</strong>
+    <p>Schließt alle aktiven SSH-Verbindungen zum ESXi-Host (Hauptverbindung, Replikations-Zielverbindung) und stoppt alle Live-Monitoring-Timer.</p>
+</div>
+<div class="button-def">
+    <strong>♻ (Jobs neu laden)</strong>
+    <p>Durchsucht das GhettoGUI-Programmverzeichnis nach Job-Dateien (<code>*.json</code>) und lädt die Dropdown-Liste "Gespeicherter Job" neu.</p>
+</div>
+
+<h3 id="esxi-ghetto-konfig">GhettoVCB Konfiguration (Backup-Einstellungen)</h3>
+<div class="button-def">
+    <strong>"..." (bei GhettoVCB-Pfad)</strong>
+    <p>Öffnet einen Datastore-Browser, in dem Sie ein Haupt-Datastore auswählen können. Die GUI hängt automatisch <code>/ghettoVCB</code> an. Beispiel: <code>/vmfs/volumes/datastore1/ghettoVCB</code>.</p>
+</div>
+<div class="button-def">
+    <strong>"..." (bei Backup Volume)</strong>
+    <p>Öffnet einen Datastore-Browser, in dem Sie den Ziel-Datastore für Ihre Backups auswählen.</p>
+</div>
+<div class="button-def">
+    <strong>Direkte Replic.</strong>
+    <p>Öffnet den Assistenten für die <strong>Host-zu-Host Replikation</strong>. Diese Methode ist schnell (Online/Offline) und nutzt SSH/TAR, erfordert aber eine funktionierende passwortlose SSH-Verbindung von der Quelle zum Ziel (siehe SSH-Konsole).</p>
+</div>
+<div class="button-def">
+    <strong>Replication</strong>
+    <p>Öffnet den Assistenten für die <strong>Replikation via Zwischenspeicher</strong>. Diese Methode nutzt GhettoVCB, um ein Backup auf ein geteiltes NAS (NFS/iSCSI) zu machen, und registriert es von dort aus auf dem Ziel-Host. Benötigt kein passwortloses SSH.</p>
+</div>
+<div class="button-def">
+    <strong>Backup download</strong>
+    <p>Ermöglicht das Herunterladen eines kompletten Backup-Ordners vom ESXi-Host auf Ihren PC. Benötigt <code>WinSCP.exe</code> und <code>WinSCPnet.dll</code> im GhettoGUI-Programmverzeichnis. Eine passwortlose SSH-Verbindung (mittels <code>id_rsa</code>-Schlüssel) wird empfohlen (siehe SSH-Konsole).</p>
+</div>
+<div class="button-def">
+    <strong>VMs laden</strong>
+    <p>Ruft die aktuelle Liste aller VMs vom verbundenen ESXi-Host ab und füllt die Checkliste darunter.</p>
+</div>
+<div class="button-def">
+    <strong>Auswahl übernehmen</strong>
+    <p>Nimmt alle VMs, die Sie in der Checkliste angehakt haben, und trägt deren Namen in das Textfeld <code>VMs (eine pro Zeile)</code> ein. Dies ist die Liste der VMs, die gesichert werden.</p>
+</div>
+<div class="button-def">
+    <strong>Restore / Klon</strong>
+    <p>Öffnet den Assistenten zum Wiederherstellen einer VM aus einem GhettoVCB-Backup oder zum Klonen einer bestehenden (ggf. laufenden) VM.</p>
+</div>
+<div class="button-def">
+    <strong>Job laden...</strong>
+    <p>Öffnet ein Datei-Dialogfenster, um eine <code>.json</code>-Datei zu laden. Stellt <strong>alle</strong> Einstellungen in der GUI (ESXi und Proxmox) aus dieser Datei wieder her.</p>
+</div>
+<div class="button-def">
+    <strong>Job speichern unter...</strong>
+    <p>Öffnet ein Datei-Dialogfenster, um <strong>alle</strong> aktuellen Einstellungen der GUI (ESXi und Proxmox) in einer <code>.json</code>-Datei auf Ihrem PC zu speichern.</p>
+</div>
+<div class="button-def">
+    <strong>Ghetto-Konfig. auf ESXi speichern</strong>
+    <p>Speichert <strong>nur</strong> die Einstellungen aus dem "GhettoVCB Konfiguration"-Block (Pfade, E-Mail, VM-Liste) in die Dateien <code>ghettoVCB.conf</code> und <code>vms_to_backup.txt</code> auf dem ESXi-Host im GhettoVCB-Pfad.</p>
+</div>
+
+<h3 id="esxi-installation">Installation & Aktionen (Rechte Seite)</h3>
+<div class="button-def">
+    <strong>Offizielles GhettoVCB installieren</strong>
+    <p>Öffnet einen Dialog, ob das GhettoVCB-Skript von GitHub oder von einer lokalen ZIP-Datei installiert werden soll. Installiert es in den angegebenen <code>GhettoVCB-Pfad</code>.</p>
+</div>
+<div class="button-def">
+    <strong>GhettoVCB Patch</strong>
+    <p>Installiert die modifizierte <code>ghettoVCB.sh</code>-Datei (von GitHub oder lokal), die für detaillierte E-Mail-Berichte (HTML) und verbesserte Fehlerbehandlung notwendig ist. Überschreibt die offizielle Datei.</p>
+</div>
+<div class="button-def">
+    <strong>E-Mail-Skript installieren</strong>
+    <p>Installiert das Python-Hilfsskript <code>sendmail.py</code> (von GitHub oder lokal) in den <code>GhettoVCB-Pfad</code>. Dieses Skript wird vom Patch benötigt, um die HTML-Berichte zu formatieren und zu senden.</p>
+</div>
+<div class="button-def">
+    <strong>SSH-Konsole /Cron /Del</strong>
+    <p>Öffnet das leistungsstarke Dual-Pane SSH-Konsolenfenster. Dieses Fenster bietet Zugriff auf erweiterte Funktionen wie Cron-Management, SSH-Key-Assistenten, Host-Verwaltung und mehr (siehe <a href="#ssh-konsole">unten</a>).</p>
+</div>
+
+<h3 id="esxi-zeitplanung">Zeitplanung (ESXi Cron)</h3>
+<div class="button-def">
+    <strong>ESXi-Zeit</strong>
+    <p>Fragt die aktuelle Systemzeit (in UTC) vom ESXi-Host ab. Nützlich, da Cronjobs die Host-Zeit (UTC) und nicht Ihre lokale Zeit verwenden.</p>
+</div>
+<div class="button-def">
+    <strong>Zeitplan speichern</strong>
+    <p>Erstellt einen neuen Cronjob auf dem ESXi-Host (<code>/var/spool/cron/crontabs/root</code>). Der Job führt den ausgewählten Job-Typ (Backup, Replikation oder Restore/Klon) zur festgelegten Zeit und Wiederholung aus, basierend auf den aktuell in der GUI konfigurierten Einstellungen.</p>
+</div>
+
+<h3 id="esxi-email">E-Mail Benachrichtigung (ESXi)</h3>
+<div class="button-def">
+    <strong>Firewall-Check</strong>
+    <p>Konfiguriert die ESXi-Firewall. Öffnet den ausgehenden SMTP-Port (den Sie im Feld <code>SMTP-Port</code> angeben) und aktiviert die <code>sshClient</code>-Regel (nötig für die "Direkte Replikation").</p>
+</div>
+<div class="button-def">
+    <strong>Email-Test</strong>
+    <p>Speichert die Konfig., lädt eine Test-Nachricht auf den Host und versucht, diese über das <code>sendmail.py</code>-Skript mit den angegebenen SMTP-Daten zu versenden. Eine schnelle Methode, um die E-Mail-Einstellungen zu prüfen.</p>
+</div>
+<div class="button-def">
+    <strong>Email-Log</strong>
+    <p>Ruft die letzte GhettoVCB-Logdatei ab und filtert sie nach Zeilen, die "email" oder "sendmail" enthalten, um die Fehlersuche bei E-Mail-Problemen zu erleichtern.</p>
+</div>
+
+<h3 id="esxi-aktionen">Backup-Aktionen (ESXi)</h3>
+<div class="button-def">
+    <strong>GhettoVCB Backup starten</strong>
+    <p>Startet den GhettoVCB-Backup-Prozess auf dem ESXi-Host im Hintergrund. Aktiviert den automatischen Log-Abruf (alle 10 Sek.) im Log-Fenster.</p>
+</div>
+<div class="button-def">
+    <strong>Backup-Log abrufen</strong>
+    <p>Ruft die aktuellste Log-Datei (manuell oder geplant) manuell ab und zeigt sie im Log-Fenster an.</p>
+</div>
+<div class="button-def">
+    <strong>Backup abbrechen</strong>
+    <p>Versucht, den laufenden GhettoVCB-Prozess auf dem ESXi-Host zu beenden (zuerst sanft via <code>SIGTERM</code>, dann hart via <code>SIGKILL</code>) und räumt temporäre Dateien auf.</p>
+</div>
+<div class="button-def">
+    <strong>Backup-Ordner Inhalt</strong>
+    <p>Führt einen <code>ls -lR</code>-Befehl auf dem konfigurierten <code>Backup Volume</code> + <code>Unterordner</code> aus, um eine rekursive Liste aller vorhandenen Backup-Dateien und Ordner anzuzeigen.</p>
+</div>
+
+<hr>
+
+<h2 id="tab-proxmox">Tab: Proxmox Manager</h2>
+<p>Dieser Tab steuert alle Funktionen, die sich auf Proxmox VE (PVE) beziehen, hauptsächlich über die Proxmox API.</p>
+
+<div class="screenshot-placeholder">
+    <img src="Proxmox.png" alt="GhettoGUI Proxmox Manager Hauptfenster">
+</div>
+<h3 id="proxmox-verbindung">Verbindung</h3>
+<div class="button-def">
+    <strong>Verbinden (API)</strong>
+    <p>Stellt eine Verbindung zur Proxmox API (Port 8006) her und fragt nach dem Passwort. Baut gleichzeitig eine <strong>zusätzliche SSH-Verbindung</strong> zum selben Host auf (mit denselben Anmeldedaten), die für die Storage-Assistenten benötigt wird. Lädt nach Erfolg die Liste aller VMs und Container von allen Nodes im Cluster.</p>
+</div>
+
+<h3 id="proxmox-steuerung">Backup-Steuerung</h3>
+<div class="button-def">
+    <strong>"..." (bei Backup Storage)</strong>
+    <p>Öffnet einen Dialog, der alle über die API gefundenen Storage-Pools des Proxmox-Hosts auflistet.</p>
+</div>
+<div class="button-def">
+    <strong>Backup starten</strong>
+    <p>Startet sofort einen <code>vzdump</code>-Backup-Job (via API) für alle in der Liste angehakten VMs und Container. Der Fortschritt jedes Jobs wird live im "Proxmox Aktivitäts-Log" angezeigt.</p>
+</div>
+<div class="button-def">
+    <strong>VM Backup restore</strong>
+    <p>Startet einen Assistenten (via API), um ein Backup wiederherzustellen. Sie wählen ein Backup vom eingestellten <code>Backup Storage</code>, wählen einen beliebigen Ziel-Storage und geben eine neue, freie VM-ID an. Startet einen <code>qmrestore</code>-Task, dessen Fortschritt live im Log angezeigt wird.</p>
+</div>
+
+<h3 id="proxmox-storage">Storage Management</h3>
+<div class="button-def">
+    <strong>Neuen Speicher hinzufügen...</strong>
+    <p>Öffnet einen Assistenten, um den Typ des neuen Speichers auszuwählen (LVM, Verzeichnis, NFS, CIFS) und startet dann den entsprechenden Einrichtungs-Assistenten.</p>
+</div>
+<div class="button-def">
+    <strong>Backup-Speicher löschen...</strong>
+    <p><strong>(DESTRUKTIV!)</strong> Öffnet einen Dialog, um einen über die GUI erstellten Verzeichnis- oder LVM-basierten Speicher auszuwählen. Nach mehrfacher Warnung entfernt dieser Knopf den Speicher aus der Proxmox API, hängt das Laufwerk aus (<code>umount</code>), entfernt den <code>fstab</code>-Eintrag (falls Verzeichnis) und <strong>löscht das zugrundeliegende Logical Volume (LVM)</strong> via SSH.</p>
+</div>
+<div class="button-def">
+    <strong>NFS-Share als Backup-Speicher mounten...</strong>
+    <p>Ein Schnellzugriff, der direkt den Assistenten zum Hinzufügen eines NFS-Speichers startet, voreingestellt für Backup-Inhalte.</p>
+</div>
+
+<h3 id="proxmox-zeitplanung">Zeitplanung (Proxmox API)</h3>
+<div class="button-def">
+    <strong>Zeitplan in Proxmox speichern</strong>
+    <p>Erstellt einen neuen, geplanten Backup-Job direkt in Proxmox (via <code>POST /cluster/backup</code>). Dieser Job verwendet die in der GUI ausgewählten VMs, den Storage, die Zeit/Tage und die E-Mail-Adresse. Der Job ist danach in der Proxmox Web-GUI unter "Rechenzentrum -> Backup" sichtbar und kann dort weiter verwaltet werden.</p>
+</div>
+
+<hr>
+
+<h2 id="ssh-konsole">Fenster: SSH-Konsole & Assistenten</h2>
+<p>Dieses separate Fenster (geöffnet über den "SSH-Konsole"-Button im ESXi-Tab) bietet erweiterte Werkzeuge, hauptsächlich für ESXi.</p>
+
+<div class="screenshot-placeholder">
+    <img src="SSH-Konsole.png" alt="GhettoGUI SSH-Konsole Fenster">
+</div>
+<h3 id="ssh-assistenten">Einrichtungs-Assistenten</h3>
+<div class="button-def">
+    <strong>1. SSH-Schlüssel einrichten (Anleitung)</strong>
+    <p>Erstellt eine <code>.bat</code>-Datei auf Ihrem PC (in <code>C:\temp</code>), die Sie ausführen müssen. Diese Batch-Datei generiert ein SSH-Schlüsselpaar auf Ihrem PC und kopiert es (nach Passwortabfrage) auf den Quell- und Ziel-Host. Dies ist für die "Direkte Replikation" notwendig.</p>
+</div>
+<div class="button-def">
+    <strong>2. Berechtigungen setzen</strong>
+    <p>Führt (nach Bestätigung) die notwendigen <code>chmod</code>-Befehle auf dem Quell- und Ziel-Host aus, um die in Schritt 1 kopierten SSH-Schlüssel für den Host-zu-Host-Login nutzbar zu machen.</p>
+</div>
+<div class="button-def">
+    <strong>3. Verbindungstest durchführen</strong>
+    <p>Führt vom Quell-Host einen SSH-Befehl zum Ziel-Host aus, um zu testen, ob die passwortlose Verbindung aus Schritt 1 & 2 erfolgreich eingerichtet wurde.</p>
+</div>
+<div class="button-def">
+    <strong>Datei auf Host hochladen...</strong>
+    <p>Öffnet einen Datei-Dialog auf Ihrem PC, um eine Datei (z.B. ein VIB- oder ZIP-Paket) auszuwählen. Öffnet danach einen Datastore-Browser, um das Ziel auf dem ESXi-Host zu wählen. Lädt die Datei via SFTP hoch.</p>
+</div>
+<div class="button-def">
+    <strong>VIB / Plugin installieren...</strong>
+    <p>Öffnet einen Datastore-Browser, um eine zuvor hochgeladene <code>.vib</code>- oder <code>.zip</code>-Datei auf dem Host auszuwählen. Führt nach Bestätigung <code>esxcli software vib install</code> (oder <code>component apply</code> für ZIPs) aus und bietet einen optionalen Neustart an.</p>
+</div>
+
+<h3 id="ssh-management">Host & Job Management</h3>
+<div class="button-def">
+    <strong>Wartungsmodus STARTEN / BEENDEN</strong>
+    <p>Versetzt den verbundenen Quell-Host in den Wartungsmodus oder beendet diesen (via <code>esxcli</code>).</p>
+</div>
+<div class="button-def">
+    <strong>Host NEU STARTEN</strong>
+    <p><strong>(GEFÄHRLICH!)</strong> Startet den Quell-Host nach zwei eindringlichen Warnungen neu (via <code>reboot</code>-Befehl).</p>
+</div>
+<div class="button-def">
+    <strong>1. Verwaiste Jobs bereinigen</strong>
+    <p><strong>(DESTRUKTIV!)</strong> Ein "Notfall"-Knopf. Tötet alle laufenden GhettoVCB- und Replikations-Prozesse (<code>kill -9</code>), sucht nach allen GhettoGUI-Snapshots auf allen VMs und löscht diese (<code>snapshot.removeall</code>), sucht nach temporären Klon-Ordnern (<code>ghetto_clone_*</code>) und löscht diese, und räumt <code>/tmp</code> auf.</p>
+</div>
+<div class="button-def">
+    <strong>2. VMs-PowerCLI konsolidieren</strong>
+    <p>Sucht (via SSH) nach VMs, die auf Delta-Disks (Snapshots) laufen. Versucht dann (via <strong>PowerCLI</strong> von Ihrem PC aus), eine Festplatten-Konsolidierung für diese VMs zu starten, um verwaiste Snapshots aufzuräumen.</p>
+</div>
+<div class="button-def">
+    <strong>1. Schlüssel auf PC</strong>
+    <p>Erstellt ein Standard-SSH-Schlüsselpaar (<code>id_rsa</code> / <code>id_rsa.pub</code>) auf Ihrem lokalen PC im Ordner <code>C:\Users\IhrName\.ssh\</code>. Dies ist der Schlüssel, den WinSCP (für "Backup download") automatisch verwendet.</p>
+</div>
+<div class="button-def">
+    <strong>2. Schlüssel auf Host</strong>
+    <p>Nimmt den unter (1.) erstellten <strong>öffentlichen</strong> Schlüssel (<code>id_rsa.pub</code>) von Ihrem PC und fügt ihn zur <code>authorized_keys</code>-Datei auf dem ESXi-Host hinzu. Dies erlaubt Ihnen, sich per SFTP/WinSCP zu verbinden, ohne ein Passwort eingeben zu müssen.</p>
+</div>
+<div class="button-def">
+    <strong>USB-Mount.</strong>
+    <p>Startet einen Assistenten, der hilft, ein angeschlossenes USB-Laufwerk zu identifizieren, es mit einer GPT-Partitionstabelle zu versehen und als VMFS6-Datastore zu formatieren (<code>partedUtil</code>, <code>vmkfstools</code>).</p>
+</div>
+<div class="button-def">
+    <strong>USB Dismount</strong>
+    <p><strong>(DESTRUKTIV!)</strong> Startet einen Assistenten, um einen Datastore (typischerweise USB) auszuwählen. Hängt diesen aus (<code>unmount</code>) und <strong>löscht die Partitionstabelle</strong> vom Laufwerk, um es sicher entfernen zu können.</p>
+</div>
+<div class="button-def">
+    <strong>USB-Wipe</strong>
+    <p><strong>(EXTREM DESTRUKTIV!)</strong> Ein einfacher Assistent, der alle erkannten Laufwerke auflistet und nach Auswahl und Bestätigung die Partitionstabelle des gewählten Laufwerks komplett löscht (<code>partedUtil mklabel msdos</code>).</p>
+</div>
+
+<h3 id="ssh-cron">Geplante Tasks (Cron)</h3>
+<div class="button-def">
+    <strong>Alle Tasks anzeigen</strong>
+    <p>Listet den Inhalt der <code>crontab</code>-Datei des root-Benutzers auf dem Quell-Host auf und nummeriert die Zeilen.</p>
+</div>
+<div class="button-def">
+    <strong>Ausgewählten Task löschen</strong>
+    <p>Löscht die Zeile mit der im Textfeld angegebenen Nummer aus der <code>crontab</code>-Datei und lädt den Cron-Dienst neu.</p>
+</div>
+<div class="button-def">
+    <strong>Alle GhettoGUI Tasks löschen</strong>
+    <p>Durchsucht die <code>crontab</code>-Datei nach allen Zeilen, die den Kommentar <code># GhettoGUI -</code> enthalten, und löscht diese. Lädt den Cron-Dienst neu.</p>
+</div>
+<div class="button-def">
+    <strong>Cron Diagnose-Info abrufen</strong>
+    <p>Überprüft, ob der <code>crond</code>-Dienst läuft, und zeigt die letzten Log-Einträge aus <code>syslog.log</code> an, die sich auf "cron" beziehen, sowie das Ende der aktuellsten GhettoGUI-Logdatei.</p>
+</div>
+
+</body>
+</html>

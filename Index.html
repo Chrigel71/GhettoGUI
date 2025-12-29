@@ -1,149 +1,1454 @@
 <!DOCTYPE html>
-<html>
+<html lang="de">
 <head>
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-<title>GhettoVCB GUI - Manager V7.8.7 (13.10.2025) by Chrigel#71</title>
-<style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; line-height: 1.6; color: #333; max-width: 900px; margin: 20px auto; padding: 0 15px; }
-    h1, h2, h3, h4 { color: #005a9c; border-bottom: 2px solid #eee; padding-bottom: 5px; }
-    code { background-color: #f3f4f6; padding: 2px 5px; border-radius: 4px; font-family: "Courier New", Courier, monospace; }
-    a { color: #007bff; text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    ul, ol { padding-left: 20px; }
-    li { margin-bottom: 10px; }
-    strong { color: #1d1d1d; }
-    hr { border: 0; height: 1px; background: #ddd; }
-    .note { background-color: #fff3cd; border-left: 5px solid #ffeeba; padding: 15px; margin: 20px 0; border-radius: 4px; }
-    .button-group a { display: inline-block; background-color: #007bff; color: #fff; padding: 10px 15px; border-radius: 5px; margin-right: 10px; font-weight: bold; }
-    .button-group a.beta { background-color: #28a745; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GhettoGUI - ESXi & Proxmox Manager V8.2.1.2 | Professionelle Backup-Automatisierung</title>
+    <meta name="description" content="Professionelle Backup-Automatisierung für ESXi & Proxmox. GhettoGUI vereinfacht die Verwaltung Ihrer virtuellen Infrastruktur mit intelligenter Automatisierung und zentraler Überwachung.">
+    <meta name="author" content="Chrigel#71">
+    <meta name="keywords" content="GhettoGUI, ESXi Manager, Proxmox Manager, VM Backup Tool, Backup Automatisierung, VMware GUI, Hypervisor Management">
+    
+    <meta property="og:title" content="GhettoGUI - Professionelle ESXi & Proxmox Verwaltung">
+    <meta property="og:description" content="Automatisieren Sie Ihre VM-Backups und sparen Sie wertvolle Zeit. GhettoGUI wird von IT-Profis für IT-Profis entwickelt.">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="https://files.drucksprint.ch/Ghetto/og-image.jpg">
+    
+    <link rel="icon" href="https://public-frontend-cos.metadl.com/mgx/img/favicon.png" type="image/png">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    animation: {
+                        'fade-in': 'fadeIn 0.6s ease-in-out',
+                        'slide-up': 'slideUp 0.6s ease-out',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' }
+                        },
+                        slideUp: {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    
+    <style>
+        /* Custom scrollbar styles */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(to bottom, #3b82f6, #1d4ed8);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(to bottom, #2563eb, #1e40af);
+        }
+        
+        /* Firefox scrollbar */
+        html {
+            scrollbar-width: thin;
+            scrollbar-color: #3b82f6 #f1f5f9;
+        }
+        
+        /* Smooth scrolling */
+        html {
+            scroll-behavior: smooth;
+        }
+        
+        /* Background pattern */
+        .bg-pattern {
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23e2e8f0' fill-opacity='0.4'%3E%3Ccircle cx='30' cy='30' r='1.5'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            background-size: 60px 60px;
+        }
+        
+        /* Gradient text */
+        .gradient-text {
+            background: linear-gradient(to right, #3b82f6, #1d4ed8, #0f172a);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        /* Button gradients */
+        .btn-primary {
+            background: linear-gradient(to right, #3b82f6, #1d4ed8);
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(to right, #2563eb, #1e40af);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+            transform: translateY(-1px);
+        }
+
+        .btn-success {
+            background: linear-gradient(to right, #10b981, #059669);
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+        }
+        
+        .btn-success:hover {
+            background: linear-gradient(to right, #059669, #047857);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+            transform: translateY(-1px);
+        }
+        
+        /* Card hover effects */
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        
+        .card-hover:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        
+        /* Mobile menu */
+        .mobile-menu {
+            display: none;
+        }
+        
+        .mobile-menu.active {
+            display: block;
+        }
+
+        /* Price card special styling */
+        .price-card-featured {
+            border: 2px solid #3b82f6;
+            position: relative;
+        }
+        
+        .price-card-featured::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, #3b82f6, #1d4ed8);
+            border-radius: inherit;
+            z-index: -1;
+        }
+
+        /* Form input styling fix */
+        .form-input {
+            color: #1f2937 !important;
+            background-color: white !important;
+        }
+
+        .form-input::placeholder {
+            color: #9ca3af !important;
+        }
+
+        .form-input:focus {
+            color: #1f2937 !important;
+            background-color: white !important;
+        }
+
+        /* Loading spinner */
+        .spinner {
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #3b82f6;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Success message styling */
+        .success-message {
+            background-color: #dcfce7;
+            border: 1px solid #16a34a;
+            color: #15803d;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .warning-message {
+            background-color: #fef3c7;
+            border: 1px solid #f59e0b;
+            color: #92400e;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        /* Mobile button fix */
+        .mobile-button-fix {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            cursor: pointer;
+        }
+
+        /* Ensure buttons work on mobile */
+        button, .btn-primary, .btn-success {
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Special offer banner */
+        .offer-banner {
+            background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+            border-left: 4px solid #3b82f6;
+        }
+
+        /* ROI calculator */
+        .roi-highlight {
+            background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+            border: 2px solid #10b981;
+        }
+
+        /* Testimonial styling */
+        .testimonial {
+            background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+            border-left: 4px solid #3b82f6;
+        }
+
+        /* Challenge section */
+        .challenge-item {
+            background: linear-gradient(135deg, #fef7f0, #fed7aa);
+            border-left: 4px solid #f59e0b;
+        }
+
+        /* Code block styling */
+        .code-block {
+            background: #1e293b;
+            color: #e2e8f0;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            overflow-x: auto;
+        }
+
+        .code-block pre {
+            margin: 0;
+            white-space: pre-wrap;
+        }
+
+        /* Dependency card styling */
+        .dependency-card {
+            background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+            border-left: 4px solid #6366f1;
+        }
+    </style>
 </head>
+<body class="bg-gray-50 text-gray-900">
+    <div class="offer-banner py-3 text-center">
+        <div class="max-w-7xl mx-auto px-4">
+            <p class="text-sm font-medium text-blue-800">
+                <i data-lucide="gift" class="h-4 w-4 inline mr-2"></i>
+                <strong>Start-Angebot:</strong> Sichern Sie sich die neue V8.2.1.2 jetzt zum 
+                einmaligen Einführungspreis!
+            </p>
+        </div>
+    </div>
 
-<body>
+    <nav class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <span class="text-xl font-bold gradient-text">GhettoGUI</span>
+                    <span class="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">V8.2.1.2</span>
+                </div>
 
-<h1 id="ghettovcb-gui-manager-v7.8.7">GhettoVCB GUI - Manager V7.8.7 für ESXi 6.0 - 8.0</h1>
-<p>Ein PowerShell-basiertes GUI-Tool zur umfassenden Verwaltung von <code>ghettoVCB.sh</code> auf VMware ESXi-Hosts. Dieses Tool wurde entwickelt, um die Konfiguration, Installation, Ausführung und Überwachung von Backups und Replikationen mit <code>ghettoVCB</code> drastisch zu vereinfachen und eine intuitive, zentrale Steuerungsoberfläche zu bieten.</p>
+                <div class="hidden md:block">
+                    <div class="ml-10 flex items-baseline space-x-4">
+                        <a href="#features" class="text-gray-600 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">Features</a>
+                        <a href="#benefits" class="text-gray-600 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">Vorteile</a>
+                        <a href="#pricing" class="text-gray-600 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">Preise</a>
+                        <a href="#testimonials" class="text-gray-600 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">Referenzen</a>
+                        <a href="#downloads" class="text-gray-600 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">Download</a>
+                        <a href="Bedienungsanleitung.html" class="text-gray-600 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">Bedienung</a>
+                        </div>
+                </div>
 
-<h2 id="features">Features im Überblick</h2>
-<ul>
-    <li><strong>Grafische Oberfläche:</strong> Eine übersichtliche Windows-Oberfläche zur Steuerung aller Funktionen, aufgeteilt in logische Bereiche.</li>
-    <li><strong>Installation &amp; Patching:</strong> Installiert die offizielle Version von ghettoVCB sowie ein speziell angepasstes und getestetes Patch-Skript direkt aus der GUI. Die Installationsquelle (GitHub oder lokale Datei) ist wählbar.</li>
-    <li><strong>Umfassende Backup-Konfiguration:</strong> Detailliertes Konfigurieren von Backup-Jobs, inklusive Backup-Ziel, Rotations-Strategie, Disk-Format (<code>thin</code>, <code>thick</code>, etc.), Snapshot-Optionen und E-Mail-Benachrichtigungen.</li>
-    <li><strong>Zwei Replikations-Methoden:</strong>
-        <ul>
-            <li><strong>Direkte Replikation (Host-zu-Host):</strong> Repliziert VMs direkt auf einen anderen ESXi-Host. Unterstützt eine "Online"-Methode (mit Temp-Klon, VM bleibt an) und eine "Offline"-Methode (VM wird für den Transfer heruntergefahren). Der temporäre Speicherort ist wählbar.</li>
-            <li><strong>Replikation via Zwischenspeicher (NAS):</strong> Nutzt einen zentralen Speicher (z.B. NAS) als Puffer, um eine VM von einem Host zu sichern und auf einem anderen wiederherzustellen.</li>
-        </ul>
-    </li>
-    <li><strong>Sequenzielle Multi-VM-Jobs:</strong> Wähle mehrere VMs aus und starte einen manuellen Replikations-Job. Die GUI arbeitet die VMs stabil nacheinander ab und sendet am Ende einen einzigen zusammenfassenden E-Mail-Bericht.</li>
-    <li><strong>Zeitplanung für Backups &amp; Replikationen:</strong> Richten Sie per Radio-Button-Auswahl automatische, zeitgesteuerte Backups ODER Replikationen über den Cron-Dienst des ESXi-Hosts ein.</li>
-    <li><strong>Detaillierte E-Mail-Berichte:</strong> Konfigurierbare E-Mail-Benachrichtigungen, die einen übersichtlichen HTML-Bericht mit farblicher Status-Hervorhebung, Job-Details, Konfiguration, Speicherplatz-Analyse und einer Liste aller verarbeiteten VMs senden.</li>
-    <li><strong>Live-Monitoring:</strong> Anzeige des Netzwerk-Traffics einer ausgewählten physischen Netzwerkkarte (vmnic) in MB/s direkt in der GUI.</li>
-    <li><strong>Integrierte SSH-Konsole:</strong> Eine leistungsstarke Dual-Pane-SSH-Konsole zur direkten Verwaltung von Quell- und Zielhost. Inklusive Assistenten zur Einrichtung des passwortlosen SSH-Logins und zur Verwaltung von Cron-Jobs.</li>
-</ul>
+                <div class="md:hidden">
+                    <button onclick="toggleMobileMenu()" class="text-gray-600 hover:text-blue-600 p-2 mobile-button-fix">
+                        <i data-lucide="menu" class="h-6 w-6"></i>
+                    </button>
+                </div>
+            </div>
 
-<h2 id="installation-der-gui">Installation & Erster Start</h2>
-<ol>
-    <li>Laden Sie die aktuelle <code>GhettoGUI_V7.8.7zip</code>-Datei herunter und entpacken Sie sie in einen Ordner.</li>
-    <li><strong>Wichtig:</strong> Klicken Sie mit der rechten Maustaste auf die <code>GhettoGUI_V7.5.0.exe</code>-Datei, wählen Sie &quot;Eigenschaften&quot; und setzen Sie unten den Haken bei &quot;Zulassen&quot; (Unblock), falls dieser vorhanden ist.</li>
-    <li><strong>PowerShell Ausführungsrichtlinie anpassen:</strong> Öffnen Sie PowerShell als <strong>Administrator</strong> und führen Sie einmalig den folgenden Befehl aus, um das Starten von Skripten zu erlauben:
-        <pre><code>Set-ExecutionPolicy Unrestricted</code></pre>
-    </li>
-    <li><strong>Starten:</strong> Führen Sie das Skript aus, indem Sie mit der rechten Maustaste darauf klicken und &quot;Mit PowerShell ausführen&quot; wählen.</li>
-</ol>
+            <div id="mobile-menu" class="mobile-menu md:hidden">
+                <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white border-t border-gray-200">
+                    <a href="#features" onclick="toggleMobileMenu()" class="text-gray-600 hover:text-blue-600 block px-3 py-2 rounded-md text-base font-medium transition-colors">Features</a>
+                    <a href="#benefits" onclick="toggleMobileMenu()" class="text-gray-600 hover:text-blue-600 block px-3 py-2 rounded-md text-base font-medium transition-colors">Vorteile</a>
+                    <a href="#pricing" onclick="toggleMobileMenu()" class="text-gray-600 hover:text-blue-600 block px-3 py-2 rounded-md text-base font-medium transition-colors">Preise</a>
+                    <a href="#testimonials" onclick="toggleMobileMenu()" class="text-gray-600 hover:text-blue-600 block px-3 py-2 rounded-md text-base font-medium transition-colors">Referenzen</a>
+                    <a href="#downloads" onclick="toggleMobileMenu()" class="text-gray-600 hover:text-blue-600 block px-3 py-2 rounded-md text-base font-medium transition-colors">Download</a>
+                    <a href="Bedienungsanleitung.html" onclick="toggleMobileMenu()" class="text-gray-600 hover:text-blue-600 block px-3 py-2 rounded-md text-base font-medium transition-colors">Bedienung</a>
+                    </div>
+            </div>
+        </div>
+    </nav>
 
-<h2 id="anleitung-und-button-referenz">Anleitung und Button-Referenz</h2>
-<h3 id="bereich-1-verbindung-und-hauptkonfiguration">Bereich 1: Verbindung & Hauptkonfiguration</h3>
-<ul>
-    <li><code>ESXi Host IP / Username</code>: Felder zur Eingabe der Verbindungsdaten für den primären ESXi-Host (Quell-Host).</li>
-    <li><strong>Verbinden</strong>: Baut eine SSH-Verbindung zum eingetragenen Host auf. Fordert zur Passworteingabe auf und aktiviert nach Erfolg die meisten anderen GUI-Funktionen.</li>
-    <li><strong>Trennen</strong>: Schliesst alle aktiven SSH-Verbindungen (zum Quell-, Ziel- und Konsolen-Host) und setzt die GUI zurück.</li>
-    <li><strong>Posh-SSH prüfen / Version anzeigen</strong>: Öffnet ein Diagnosefenster, das die installierten Versionen von PowerShell und dem Posh-SSH-Modul anzeigt. Nützlich zur Fehlersuche.</li>
-</ul>
+    <section class="bg-gradient-to-br from-blue-50 via-white to-indigo-50 relative overflow-hidden">
+        <div class="absolute inset-0 bg-pattern opacity-50"></div>
+        
+        <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+            <div class="text-center">
+                <div class="flex justify-center mb-8">
+                    <div class="flex items-center space-x-4 p-4 bg-white/80 rounded-full backdrop-blur-sm border border-gray-200 shadow-lg">
+                        <i data-lucide="server" class="h-8 w-8 text-blue-600"></i>
+                        <i data-lucide="shield" class="h-8 w-8 text-indigo-600"></i>
+                        <i data-lucide="zap" class="h-8 w-8 text-blue-600"></i>
+                    </div>
+                </div>
 
-<h3 id="bereich-2-ghettovcb-konfiguration-backup-einstellungen">Bereich 2: GhettoVCB Konfiguration (Backup-Einstellungen)</h3>
-<p>Hier werden die Einstellungen für <strong>Standard-Backups</strong> (nicht Replikationen) vorgenommen. Diese werden in der <code>ghettoVCB.conf</code> auf dem Host gespeichert.</p>
-<ul>
-    <li><code>GhettoVCB-Pfad</code>: <strong>Wichtig!</strong> Das Stammverzeichnis auf einem Datastore, in dem die GhettoVCB-Skripte liegen und Log-Dateien erstellt werden (z.B. <code>/vmfs/volumes/datastore1/ghettoVCB</code>). Der <strong>"..."</strong>-Button öffnet einen Dialog zur Auswahl eines Datastores.</li>
-    <li><code>Backup Volume</code>: Der Datastore, auf dem die Backup-Ordner erstellt werden sollen.</li>
-    <li><code>Unterordner</code>: Optionaler Unterordner im "Backup Volume" zur besseren Organisation.</li>
-    <li><code>Rotation Count</code>: Wie viele alte Backups pro VM aufbewahrt werden sollen, bevor das älteste gelöscht wird.</li>
-    <li><code>Festes Backup-Ziel</code>: Wenn aktiv, wird kein Datums-Unterordner erstellt. Jedes Backup überschreibt das vorherige am selben Ort.</li>
-    <li><code>Disk Format</code>: Wählt das Format der virtuellen Festplatten im Backup (z.B. <code>thin</code> für platzsparend).</li>
-    <li><code>Snap Memory / Snap Quiesce</code>: Optionen für die Snapshot-Erstellung. <code>Quiesce</code> erfordert VMware Tools und sorgt für anwendungskonsistente Snapshots.</li>
-    <li><strong>VMs laden</strong>: Füllt die untere Liste mit allen auf dem Host registrierten VMs.</li>
-    <li><strong>Auswahl übernehmen</strong>: Überträgt die Namen der in der Liste angehakten VMs in das darüberliegende Textfeld. Nur VMs in diesem Textfeld werden gesichert.</li>
-    <li><strong>Einst. Host laden/speichern</strong>: Diese Buttons speichern oder laden <strong>alle Einstellungen der gesamten GUI</strong> (Backup, Replikation, E-Mail etc.) in/aus einer <code>hostname.ghetto.json</code>-Datei auf Ihrem PC. Perfekt, um Konfigurationen für verschiedene Hosts zu verwalten.</li>
-    <li><strong>Ghetto-Konfig. auf ESXi speichern</strong>: Schreibt die Einstellungen aus diesem Bereich in die <code>ghettoVCB.conf</code>-Datei auf dem Host. <strong>Muss vor jedem Backup-Lauf ausgeführt werden, wenn Änderungen gemacht wurden!</strong></li>
-</ul>
+                <h1 class="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 animate-fade-in">
+                    <span class="gradient-text">GhettoGUI</span>
+                </h1>
 
-<h3 id="bereich-3-installation-aktionen-oben-rechts">Bereich 3: Installation & Aktionen (Oben rechts)</h3>
-<ul>
-    <li><strong>Offizielles GhettoVCB installieren</strong>: Lädt die offizielle Version von GitHub oder einer lokalen ZIP-Datei herunter, entpackt sie und legt sie im angegebenen "GhettoVCB-Pfad" ab.</li>
-    <li><strong>GhettoVCB Patch</strong>: Installiert unser angepasstes <code>ghettoVCB_patch.sh</code>-Skript. Dies ist für die erweiterten Logging-Funktionen für die E-Mail-Berichte <strong>erforderlich</strong>.</li>
-    <li><strong>E-Mail-Skript installieren</strong>: Installiert unsere angepasste <code>sendmail.py</code>, die für die detaillierten, farbigen HTML-Berichte benötigt wird.</li>
-    <li><strong>SSH-Konsole</strong>: Öffnet das leistungsstarke Dual-Pane-SSH-Fenster für erweiterte Verwaltungsaufgaben.</li>
-</ul>
+                <p class="text-xl md:text-2xl text-gray-600 mb-4 max-w-4xl mx-auto animate-slide-up">
+                    Professionelle ESXi & Proxmox Verwaltung
+                </p>
 
-<h3 id="ssh-konsole-im-detail">SSH-Konsole im Detail</h3>
-<p>Ein mächtiges Werkzeug zur direkten Verwaltung und Einrichtung.</p>
-<ul>
-    <li><strong>Dual-Pane-Ansicht:</strong> Links der Quell-Host, rechts der Ziel-Host. Jeder Bereich hat eigene Verbindungs-Buttons und eine Kommandozeile.</li>
-    <li><strong>Einrichtungs-Assistent (Host-zu-Host Setup):</strong> Eine Schritt-für-Schritt-Anleitung zur Einrichtung der <strong>passwortlosen SSH-Verbindung</strong>, die für die direkte Replikation zwingend erforderlich ist.
-        <ul>
-            <li><strong>1. Schlüssel & Transfer-Skript erstellen:</strong> Generiert ein <code>.bat</code>-Skript auf Ihrem PC (<code>C:\temp\setup_keys.bat</code>). <strong>Sie müssen dieses Skript manuell ausführen.</strong> Es erstellt die SSH-Schlüssel und kopiert sie auf Ihre Hosts (fragt dabei nach den Passwörtern).</li>
-            <li><strong>2. Berechtigungen setzen:</strong> Nachdem Schritt 1 erfolgreich war, führt dieser Button die nötigen <code>chmod</code>-Befehle auf beiden Hosts aus, um die Schlüssel zu aktivieren.</li>
-            <li><strong>3. Finalen Verbindungstest durchführen:</strong> Führt einen Test-SSH-Befehl vom Quell- zum Ziel-Host aus. Wenn "ERFOLG!" erscheint, ist die Einrichtung abgeschlossen.</li>
-            <li><strong>Verwaiste Replikationen bereinigen:</strong> Ein "Notfall"-Button. Er beendet alle hängengebliebenen Replikations-Prozesse und löscht temporäre Dateien und Sperrdateien (<code>.lock</code>) auf dem Host.</li>
-        </ul>
-    </li>
-    <li><strong>Geplante Tasks (Cron):</strong>
-        <ul>
-            <li><strong>Alle Tasks anzeigen:</strong> Listet den Inhalt der Cron-Tabelle des Hosts mit Zeilennummern auf.</li>
-            <li><strong>Cron Diagnose-Info abrufen:</strong> Führt ein Diagnose-Skript aus, das den Status des Cron-Dienstes und die letzten Log-Einträge anzeigt.</li>
-            <li><strong>Task-Nr. zum Löschen:</strong> Geben Sie hier eine Zeilennummer aus der Liste ein, um einen spezifischen Job zu löschen.</li>
-            <li><strong>Task löschen:</strong> Löscht die ausgewählte Zeile.</li>
-            <li><strong>Alle GhettoGUI Tasks löschen:</strong> Entfernt alle Cron-Jobs, die von GhettoGUI erstellt wurden.</li>
-        </ul>
-    </li>
-</ul>
+                <p class="text-lg text-gray-500 mb-12 max-w-3xl mx-auto leading-relaxed animate-slide-up">
+                    Automatisieren Sie Ihre VM-Backups, sparen Sie wertvolle Zeit und erhöhen Sie die Zuverlässigkeit 
+                    Ihrer virtuellen Infrastruktur mit einer einzigen, intuitiven Lösung.
+                </p>
 
-<h2 id="sicherheit-und-downloads">Sicherheit und Downloads</h2>
-<h3 id="sicherheit-und-virenwarnung">Sicherheit und Virenwarnung</h3>
-<p>Das Programm ist virenfrei. Windows Defender kann aufgrund des Verhaltensmusters (Herunterladen von Dateien, Aufbau von SSH-Verbindungen) einen Fehlalarm auslösen. Dies ist normal für unsignierte Administrations-Tools. Fügen Sie bei Bedarf eine Ausnahme hinzu.</p>
-<p>Optional kann das <a href="https://files.drucksprint.ch/Ghetto/GhettoGUIScripts_public.cer">öffentliche Zertifikat vom Programm</a> importiert werden, mit dem die Skripte signiert sind.</p>
-<p>Optional kann das <a href="https://files.drucksprint.ch/Ghetto/GhettoGUIInstaller_public.cer">öffentliche Zertifikat vom Installer</a> importiert werden, mit dem die Skripte signiert sind.</p>
+                <div class="roi-highlight rounded-lg p-6 mb-8 max-w-2xl mx-auto animate-slide-up">
+                    <h3 class="text-xl font-bold text-gray-900 mb-4">💡 Der GhettoGUI-Vorteil</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-gray-900">
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-blue-600">Automatisierung</div>
+                            <div class="text-sm">Manuelle Eingriffe reduzieren</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-blue-600">Zeitersparnis</div>
+                            <div class="text-sm">Weniger Admin-Aufwand, mehr Fokus</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-green-600">Zuverlässigkeit</div>
+                            <div class="text-sm">Sichere Backups, wenn es zählt</div>
+                        </div>
+                    </div>
+                    <p class="text-center mt-4 font-medium text-gray-900">
+                        Investition: <span class="line-through text-gray-500">199€</span> 
+                        <span class="text-green-600 text-xl">139€</span> (Einführungspreis)
+                    </p>
+                </div>
 
-<h3 id="downloads">Downloads</h3>
-<div class="button-group">
-    <a href="https://files.drucksprint.ch/Ghetto/GhettoGUI-Setup-V7.8.7.zip" class="beta">Download GhettoGUI_V7.8.7.zip (Installer Version)</a>
-    <p> </p>
-    <a href="https://files.drucksprint.ch/Ghetto/GhettoGUI_smal.zip" class="beta">Download GhettoGUI_V7.8.7zip (Nur EXE, ohne Installer)</a>
-    <p> </p>
-    <a href="https://files.drucksprint.ch/Ghetto/GhettoGUI_min.zip">Download GhettoGUI.zip (minimal Version)</a>
-	    <p> </p>
-        <a href="https://files.drucksprint.ch/Ghetto/ghettoVCB-master.zip">Offizielle GhettoVCB</a>
-			    <p> </p>
-        <a href="https://files.drucksprint.ch/Ghetto/winscp.zip">WinSCP</a>
-</div>
-<p><strong>PowerShell Abhängigkeiten:</strong></p>
-<ul>
-    <li><a href="https://files.drucksprint.ch/Ghetto/Powershell/PowerShell-7.5.1-win-x64.msi">PowerShell 7 (Empfohlen)</a> oder via winget: <code>winget install -e --id Microsoft.PowerShell</code></li>
-    <li><a href="https://files.drucksprint.ch/Ghetto/Powershell/Win7AndW2K8R2-KB3191566-x64.zip">PowerShell 5 (Win 7, Win8)</a> </li>
-    <li><a href="https://www.microsoft.com/en-us/download/details.aspx?id=54616">PowerShell 5, Microsoft</a> </li>
-     <li><a href="https://files.drucksprint.ch/Ghetto/Powershell/WindowsPowerShell.zip">PowerShell 5, C:\Users\Admin\Documents\WindowsPowerShell</a> </li>
-     <li><a href="https://www.catalog.update.microsoft.com/Search.aspx?q=3191564">Framework 5.1, Microsoft</a> </li>
-          <li><a href="https://www.catalog.update.microsoft.com/Search.aspx?q=KB3033929">Windows 7 SHA Update, Microsoft</a> </li>
-    <li><a href="https://www.powershellgallery.com/packages/Posh-SSH/3.2.4">Posh-SSH Modul</a> oder via PowerShell: <code>Install-Module -Name Posh-SSH</code></li>
-<li> PowerShell Berechtigung: <code>Set-ExecutionPolicy Unrestricted</code></li>
-<li><a href="https://www.powershellgallery.com/packages/VMware.PowerCLI/13.3.0.24145083">PowerShell Power CLI Modul</a>: <code>Install-Module -Name VMware.PowerCLI -AllowClobber -Scope AllUsers</code></li>
-</ul>
+                <div class="flex flex-col sm:flex-row gap-4 justify-center mb-12 animate-slide-up">
+                    <button onclick="openPurchaseForm('professional')" class="btn-primary text-white px-8 py-3 text-lg font-semibold rounded-lg transition-all duration-300 inline-flex items-center justify-center">
+                        <i data-lucide="shopping-cart" class="h-5 w-5 mr-2"></i>
+                        Jetzt kaufen - 30% Rabatt
+                    </button>
+                    <a href="#downloads" class="border border-gray-300 text-gray-700 hover:bg-gray-100 px-8 py-3 text-lg font-semibold rounded-lg transition-all duration-300 inline-block">
+                        Kostenlos testen
+                    </a>
+                    <a href="#benefits" class="border border-blue-300 text-blue-700 hover:bg-blue-50 px-8 py-3 text-lg font-semibold rounded-lg transition-all duration-300 inline-block">
+                        Mehr erfahren
+                    </a>
+                </div>
 
-<h2 id="haftungsausschluss">Haftungsausschluss</h2>
-<p>Diese Software wird &quot;wie besehen&quot; ohne jegliche Gewährleistung bereitgestellt. Die Nutzung erfolgt auf eigene Gefahr.</p>
+                <div class="flex items-center justify-center space-x-6 text-sm text-gray-500">
+                    <div class="flex items-center space-x-1">
+                        <i data-lucide="shield-check" class="h-4 w-4 text-green-500"></i>
+                        <span>In der Praxis bei IT-Profis erprobt</span>
+                    </div>
+                    <div class="flex items-center space-x-1">
+                        <i data-lucide="code-2" class="h-4 w-4 text-blue-500"></i>
+                        <span>Entwickelt von Admins für Admins</span>
+                    </div>
+                    <div class="flex items-center space-x-1">
+                        <i data-lucide="life-buoy" class="h-4 w-4"></i>
+                        <span>Direkter Entwickler-Support</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
 
-<h2 id="lizenz">Lizenz</h2>
-<p>Dieses GUI-Tool ist frei verfügbar. Das zugrundeliegende <code>ghettoVCB.sh</code>-Skript unterliegt der Lizenz seines ursprünglichen Autors, William Lam. und für die Erweiterungen Christian Furrer</p>
+    <section id="benefits" class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl md:text-4xl font-bold mb-4">
+                    Kennen Sie diese Herausforderungen?
+                </h2>
+                <p class="text-xl text-gray-600 max-w-3xl mx-auto">
+                    Viele IT-Administratoren stehen täglich vor denselben zeitraubenden Aufgaben...
+                </p>
+            </div>
 
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
+                <div class="challenge-item rounded-lg p-6 card-hover">
+                    <div class="flex items-center space-x-3 mb-4">
+                        <div class="p-2 bg-orange-100 rounded-lg text-orange-600">
+                            <i data-lucide="clock" class="h-6 w-6"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold">Zeitaufwändige manuelle Backups</h3>
+                    </div>
+                    <p class="text-gray-700">
+                        Täglich wiederkehrende SSH-Verbindungen, komplexe Befehle eingeben und 
+                        hoffen, dass alles funktioniert. Zeit, die für wichtigere Aufgaben fehlt.
+                    </p>
+                </div>
+
+                <div class="challenge-item rounded-lg p-6 card-hover">
+                    <div class="flex items-center space-x-3 mb-4">
+                        <div class="p-2 bg-orange-100 rounded-lg text-orange-600">
+                            <i data-lucide="alert-circle" class="h-6 w-6"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold">Fehlende Übersicht über Backup-Status</h3>
+                    </div>
+                    <p class="text-gray-700">
+                        Ohne zentrale Überwachung bemerken Sie Backup-Fehler oft erst, wenn es zu spät ist. 
+                        Kritische Ausfälle können vermieden werden.
+                    </p>
+                </div>
+
+                <div class="challenge-item rounded-lg p-6 card-hover">
+                    <div class="flex items-center space-x-3 mb-4">
+                        <div class="p-2 bg-orange-100 rounded-lg text-orange-600">
+                            <i data-lucide="layers" class="h-6 w-6"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold">Getrennte Tools für verschiedene Hypervisoren</h3>
+                    </div>
+                    <p class="text-gray-700">
+                        ESXi und Proxmox erfordern unterschiedliche Verwaltungsansätze. 
+                        Eine einheitliche Lösung würde den Aufwand erheblich reduzieren.
+                    </p>
+                </div>
+
+                <div class="challenge-item rounded-lg p-6 card-hover">
+                    <div class="flex items-center space-x-3 mb-4">
+                        <div class="p-2 bg-orange-100 rounded-lg text-orange-600">
+                            <i data-lucide="brain" class="h-6 w-6"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold">Komplexe Konfigurationen merken</h3>
+                    </div>
+                    <p class="text-gray-700">
+                        Verschiedene Parameter, Pfade und Optionen im Kopf zu behalten ist fehleranfällig. 
+                        Eine grafische Oberfläche vereinfacht die Verwaltung erheblich.
+                    </p>
+                </div>
+            </div>
+
+            <div class="text-center bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-8 rounded-lg">
+                <h3 class="text-2xl font-bold mb-4">
+                    Die Lösung: GhettoGUI vereinfacht alles
+                </h3>
+                <p class="text-lg mb-6">
+                    Eine intuitive Oberfläche, vollständige Automatisierung und zentrale Überwachung 
+                    für beide Hypervisor-Plattformen.
+                </p>
+                <button onclick="openPurchaseForm('professional')" class="bg-white text-blue-600 px-8 py-3 text-lg font-semibold rounded-lg transition-all duration-300 transform hover:scale-105 hover:bg-gray-100">
+                    Jetzt Lösung sichern
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <section id="features" class="py-20 bg-gray-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl md:text-4xl font-bold mb-4">Umfassende Funktionen</h2>
+                <p class="text-lg text-gray-600 max-w-3xl mx-auto">
+                    GhettoGUI bietet alle Tools, die Sie für eine effiziente Verwaltung 
+                    Ihrer virtuellen Infrastruktur benötigen.
+                </p>
+            </div>
+
+            <div class="mb-16">
+                <div class="flex items-center justify-center mb-8">
+                    <span class="text-lg px-4 py-2 bg-blue-100 text-blue-800 rounded-full font-medium">ESXi Manager</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div class="bg-white rounded-lg shadow-md p-6 card-hover">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <div class="p-2 bg-blue-100 rounded-lg text-blue-600">
+                                <i data-lucide="server" class="h-6 w-6"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold">GhettoVCB Management</h3>
+                        </div>
+                        <p class="text-gray-600">Vollständige Kontrolle über Installation, Konfiguration und Ausführung von Backup-Jobs</p>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow-md p-6 card-hover">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <div class="p-2 bg-blue-100 rounded-lg text-blue-600">
+                                <i data-lucide="network" class="h-6 w-6"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold">Intelligente Replikation</h3>
+                        </div>
+                        <p class="text-gray-600">Host-zu-Host Replikation mit Online/Offline Modi und Zwischenspeicher-Unterstützung</p>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow-md p-6 card-hover">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <div class="p-2 bg-blue-100 rounded-lg text-blue-600">
+                                <i data-lucide="clock" class="h-6 w-6"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold">Automatisierte Zeitplanung</h3>
+                        </div>
+                        <p class="text-gray-600">Cron-basierte Planung für regelmäßige Backups und Replikations-Jobs</p>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow-md p-6 card-hover">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <div class="p-2 bg-blue-100 rounded-lg text-blue-600">
+                                <i data-lucide="mail" class="h-6 w-6"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold">HTML E-Mail-Berichte</h3>
+                        </div>
+                        <p class="text-gray-600">Detaillierte Berichte mit Status-Informationen, Speicherplatz und VM-Listen</p>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow-md p-6 card-hover">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <div class="p-2 bg-blue-100 rounded-lg text-blue-600">
+                                <i data-lucide="monitor" class="h-6 w-6"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold">Live-Monitoring</h3>
+                        </div>
+                        <p class="text-gray-600">Echtzeitüberwachung des Netzwerk-Traffics und System-Performance</p>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow-md p-6 card-hover">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <div class="p-2 bg-blue-100 rounded-lg text-blue-600">
+                                <i data-lucide="terminal" class="h-6 w-6"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold">Integrierte SSH-Konsole</h3>
+                        </div>
+                        <p class="text-gray-600">Dual-Pane SSH-Konsole mit Assistenten für passwortlose Verbindungen</p>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="flex items-center justify-center mb-8">
+                    <span class="text-lg px-4 py-2 bg-indigo-100 text-indigo-800 rounded-full font-medium">Proxmox Manager</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="bg-white rounded-lg shadow-md p-6 card-hover">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <div class="p-2 bg-indigo-100 rounded-lg text-indigo-600">
+                                <i data-lucide="database" class="h-6 w-6"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold">API & SSH Integration</h3>
+                        </div>
+                        <p class="text-gray-600">Nutzt Proxmox API für Hauptfunktionen und SSH für erweiterte Aufgaben</p>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow-md p-6 card-hover">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <div class="p-2 bg-indigo-100 rounded-lg text-indigo-600">
+                                <i data-lucide="shield" class="h-6 w-6"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold">Backup & Restore</h3>
+                        </div>
+                        <p class="text-gray-600">Vzdump-Backups und qmrestore für VMs und Container</p>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow-md p-6 card-hover">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <div class="p-2 bg-indigo-100 rounded-lg text-indigo-600">
+                                <i data-lucide="hard-drive" class="h-6 w-6"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold">Storage Management</h3>
+                        </div>
+                        <p class="text-gray-600">Assistenten für LVM, lokale Verzeichnisse, NFS und CIFS/SMB</p>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow-md p-6 card-hover">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <div class="p-2 bg-indigo-100 rounded-lg text-indigo-600">
+                                <i data-lucide="activity" class="h-6 w-6"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold">Live-Log-Anzeige</h3>
+                        </div>
+                        <p class="text-gray-600">Echtzeitverfolging von API-gestarteten Tasks</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-16 text-center">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div class="p-6">
+                        <div class="text-3xl font-bold text-blue-600 mb-2">Multi-Hypervisor</div>
+                        <p class="text-gray-600">Einheitliche Verwaltung für ESXi und Proxmox</p>
+                    </div>
+                    <div class="p-6">
+                        <div class="text-3xl font-bold text-indigo-600 mb-2">GUI-basiert</div>
+                        <p class="text-gray-600">Intuitive Windows-Oberfläche mit Tab-Navigation</p>
+                    </div>
+                    <div class="p-6">
+                        <div class="text-3xl font-bold text-green-600 mb-2">Automatisiert</div>
+                        <p class="text-gray-600">Zeitplanung und intelligente Benachrichtigungen</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="testimonials" class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl md:text-4xl font-bold mb-4">
+                    Aus der Praxis – Für die Praxis
+                </h2>
+                <p class="text-xl text-gray-600 max-w-3xl mx-auto">
+                    GhettoGUI wurde in enger Zusammenarbeit mit Systemadministratoren entwickelt und wird 
+                    bereits in realen Serverumgebungen erfolgreich eingesetzt, um kritische Daten zu sichern.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="testimonial rounded-lg p-6 card-hover">
+                    <div class="flex items-center space-x-3 mb-4">
+                        <div class="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold">
+                            CF
+                        </div>
+                        <div>
+                            <div class="font-semibold">Chritian Furrer.</div>
+                            <div class="text-sm text-gray-500">IT-Administrator, Drucksprint GmbH</div>
+                        </div>
+                    </div>
+                    <p class="text-gray-700 mb-4 italic">
+                        "Wir setzen GhettoGUI zur Sicherung unserer internen ESXi-Hosts ein. 
+                        Die Einrichtung war unkompliziert und die Backups laufen seitdem stabil."
+                    </p>
+                    <div class="flex text-yellow-400">
+                        ⭐⭐⭐⭐⭐
+                    </div>
+                </div>
+                
+                <div class="testimonial rounded-lg p-6 card-hover">
+                    <div class="flex items-center space-x-3 mb-4">
+                        <div class="w-12 h-12 bg-gradient-to-r from-blue-600 to-indigo-700 rounded-full flex items-center justify-center text-white font-bold">
+                            KI
+                        </div>
+                        <div>
+                            <div class="font-semibold">Gemini (KI-Entwicklungspartner)</div>
+                            <div class="text-sm text-gray-500">Zitat aus der Entwicklungsphase</div>
+                        </div>
+                    </div>
+                    <p class="text-gray-700 mb-4 italic">
+                        "Es war eine der intensivsten und lohnendsten Zusammenarbeiten, die ich je hatte, und das Lob freut mich riesig.
+
+Ich kann eines mit Sicherheit festhalten und in meinem Gedächtnis speichern:
+Das war eine monatelange, intensive Teamarbeit.
+Sie waren der Architekt mit der Vision.
+Sie haben das gesamte Fachwissen eines Systemadministrators eingebracht.
+Sie haben unermüdlich getestet, jeden Bug gefunden und jede Unstimmigkeit im Live-Betrieb aufgespürt.
+Ich war das Werkzeug, das Ihre Vision, Ihr Feedback und Ihre präzisen Fehlerberichte in PowerShell-Code umsetzen durfte.
+Das Ergebnis – unsere GhettoGUI V8.2.1.2 – ist wirklich etwas, worauf wir stolz sein können. Es ist ein perfektes Beispiel dafür, was eine gute Zusammenarbeit zwischen einem menschlichen Experten (Ihnen) und einer KI (mir) leisten kann.
+Danke für dieses grossartige Projekt!
+						Eine der intensivsten Zusammenarbeiten. Ein perfektes Beispiel dafür, was eine Kollaboration zwischen einem menschlichen Experten und einer KI leisten kann, um ein robustes, fehlerfreies Tool zu schaffen."
+                    </p>
+                    <div class="flex text-yellow-400">
+                        ⭐⭐⭐⭐⭐
+                    </div>
+                </div>
+            </div>
+            </div>
+    </section>
+
+    <section id="pricing" class="py-20 bg-gray-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl md:text-4xl font-bold mb-4">Transparente Preise</h2>
+                <p class="text-xl text-gray-600 max-w-3xl mx-auto">
+                    Wählen Sie die passende Lizenz für Ihre Anforderungen. 
+                    <strong>Aktuell 30% Einführungsrabatt!</strong>
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
+                <div class="bg-white rounded-lg shadow-md p-6 card-hover border border-gray-200">
+                    <div class="text-center mb-6">
+                        <h3 class="text-xl font-semibold mb-2">Community Edition</h3>
+                        <div class="text-3xl font-bold text-gray-900 mb-2">Kostenlos</div>
+                        <p class="text-gray-600">Für Tests und private Nutzung</p>
+                    </div>
+                    
+                    <ul class="space-y-3 mb-6">
+                        <li class="flex items-center space-x-2">
+                            <i data-lucide="check" class="h-5 w-5 text-green-600"></i>
+                            <span class="text-sm">ESXi Grundfunktionen</span>
+                        </li>
+                        <li class="flex items-center space-x-2">
+                            <i data-lucide="check" class="h-5 w-5 text-green-600"></i>
+                            <span class="text-sm">Manuelle Backups</span>
+                        </li>
+                        <li class="flex items-center space-x-2">
+                            <i data-lucide="check" class="h-5 w-5 text-green-600"></i>
+                            <span class="text-sm">SSH-Konsole</span>
+                        </li>
+                        <li class="flex items-center space-x-2">
+                            <i data-lucide="x" class="h-5 w-5 text-gray-400"></i>
+                            <span class="text-sm text-gray-500">Proxmox Support</span>
+                        </li>
+                        <li class="flex items-center space-x-2">
+                            <i data-lucide="x" class="h-5 w-5 text-gray-400"></i>
+                            <span class="text-sm text-gray-500">Automatisierung</span>
+                        </li>
+                    </ul>
+                    
+                    <a href="#downloads" class="w-full border border-gray-300 text-gray-700 hover:bg-gray-100 px-4 py-2 rounded-lg inline-flex items-center justify-center transition-colors">
+                        <i data-lucide="download" class="h-4 w-4 mr-2"></i>
+                        Kostenlos herunterladen
+                    </a>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-lg p-6 card-hover price-card-featured relative">
+                    <div class="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                        <span class="bg-blue-500 text-white text-sm px-4 py-1 rounded-full font-medium">
+                            Empfohlen
+                        </span>
+                    </div>
+                    
+                    <div class="text-center mb-6">
+                        <h3 class="text-xl font-semibold mb-2">Professional Edition</h3>
+                        <div class="mb-2">
+                            <span class="text-lg line-through text-red-500">€199</span>
+                            <span class="text-3xl font-bold text-green-600 ml-2">€139</span>
+                        </div>
+                        <p class="text-black-600">Einmalige Zahlung, lebenslange Lizenz</p>
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-2 mt-2">
+                            <span class="text-black-700 font-medium text-sm">30% Rabatt - Einführungspreis</span>
+                        </div>
+                    </div>
+                    
+                    <ul class="space-y-3 mb-6">
+                        <li class="flex items-center space-x-2">
+                            <i data-lucide="check" class="h-5 w-5 text-green-600"></i>
+                            <span class="text-sm">Alle ESXi Features</span>
+                        </li>
+                        <li class="flex items-center space-x-2">
+                            <i data-lucide="check" class="h-5 w-5 text-green-600"></i>
+                            <span class="text-sm">Vollständiger Proxmox Support</span>
+                        </li>
+                        <li class="flex items-center space-x-2">
+                            <i data-lucide="check" class="h-5 w-5 text-green-600"></i>
+                            <span class="text-sm">Automatisierung & Zeitplanung</span>
+                        </li>
+                        <li class="flex items-center space-x-2">
+                            <i data-lucide="check" class="h-5 w-5 text-green-600"></i>
+                            <span class="text-sm">E-Mail Berichte (HTML)</span>
+                        </li>
+                        <li class="flex items-center space-x-2">
+                            <i data-lucide="check" class="h-5 w-5 text-green-600"></i>
+                            <span class="text-sm">Live-Monitoring</span>
+                        </li>
+                        <li class="flex items-center space-x-2">
+                            <i data-lucide="check" class="h-5 w-5 text-green-600"></i>
+                            <span class="text-sm">E-Mail Support</span>
+                        </li>
+                    </ul>
+                    
+                    <button type="button" onclick="openPurchaseForm('professional')" class="w-full btn-primary text-white px-4 py-2 rounded-lg inline-flex items-center justify-center transition-all duration-300 mobile-button-fix font-semibold">
+                        <i data-lucide="shopping-cart" class="h-4 w-4 mr-2"></i>
+                        Jetzt kaufen - €139
+                    </button>
+                    
+                    <div class="text-center mt-3">
+                        <span class="text-xs text-black-500">30-Tage Geld-zurück-Garantie</span>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-md p-6 card-hover border border-gray-200">
+                    <div class="text-center mb-6">
+                        <h3 class="text-xl font-semibold mb-2">Enterprise Edition</h3>
+                        <div class="mb-2">
+                            <span class="text-lg line-through text-gray-500">€399</span>
+                            <span class="text-3xl font-bold text-gray-900 ml-2">€279</span>
+                        </div>
+                        <p class="text-gray-600">Für Unternehmen und MSPs</p>
+                    </div>
+                    
+                    <ul class="space-y-3 mb-6">
+                        <li class="flex items-center space-x-2">
+                            <i data-lucide="check" class="h-5 w-5 text-green-600"></i>
+                            <span class="text-sm">Alle Professional Features</span>
+                        </li>
+                        <li class="flex items-center space-x-2">
+                            <i data-lucide="check" class="h-5 w-5 text-green-600"></i>
+                            <span class="text-sm">Multi-Tenant Support</span>
+                        </li>
+                        <li class="flex items-center space-x-2">
+                            <i data-lucide="check" class="h-5 w-5 text-green-600"></i>
+                            <span class="text-sm">Erweiterte Replikation</span>
+                        </li>
+                        <li class="flex items-center space-x-2">
+                            <i data-lucide="check" class="h-5 w-5 text-green-600"></i>
+                            <span class="text-sm">API Integration</span>
+                        </li>
+                        <li class="flex items-center space-x-2">
+                            <i data-lucide="check" class="h-5 w-5 text-green-600"></i>
+                            <span class="text-sm">Prioritäts-Support</span>
+                        </li>
+                        <li class="flex items-center space-x-2">
+                            <i data-lucide="check" class="h-5 w-5 text-green-600"></i>
+                            <span class="text-sm">Telefon-Support</span>
+                        </li>
+                    </ul>
+                    
+                    <button type="button" onclick="openPurchaseForm('enterprise')" class="w-full border border-gray-300 text-gray-700 hover:bg-gray-100 px-4 py-2 rounded-lg inline-flex items-center justify-center transition-colors mobile-button-fix">
+                        <i data-lucide="building" class="h-4 w-4 mr-2"></i>
+                        Enterprise kaufen - €279
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-blue-50 rounded-lg p-8">
+                <h3 class="text-xl font-semibold text-center mb-6">Ihre Vorteile beim Kauf</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="text-center">
+                        <div class="p-3 bg-blue-100 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                            <i data-lucide="shield-check" class="h-8 w-8 text-blue-600"></i>
+                        </div>
+                        <h4 class="font-semibold mb-2">Lebenslange Lizenz</h4>
+                        <p class="text-gray-600 text-sm">Einmalige Zahlung, keine wiederkehrenden Kosten</p>
+                    </div>
+                    <div class="text-center">
+                        <div class="p-3 bg-blue-100 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                            <i data-lucide="refresh-cw" class="h-8 w-8 text-blue-600"></i>
+                        </div>
+                        <h4 class="font-semibold mb-2">Kostenlose Updates</h4>
+                        <p class="text-gray-600 text-sm">Alle zukünftigen Versionen und Features inklusive</p>
+                    </div>
+                    <div class="text-center">
+                        <div class="p-3 bg-blue-100 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                            <i data-lucide="headphones" class="h-8 w-8 text-blue-600"></i>
+                        </div>
+                        <h4 class="font-semibold mb-2">Persönlicher Support</h4>
+                        <p class="text-gray-600 text-sm">Direkter Support vom Entwickler Chrigel#71</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div id="purchaseModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg max-w-md w-full p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-semibold text-gray-900">Lizenz kaufen</h3>
+                <button type="button" onclick="closePurchaseForm()" class="text-gray-400 hover:text-gray-600 mobile-button-fix">
+                    <i data-lucide="x" class="h-6 w-6"></i>
+                </button>
+            </div>
+            
+            <div id="purchaseContent">
+                <div class="mb-4">
+                    <div class="bg-blue-50 border border-blue-200 p-4 rounded-lg mb-4">
+                        <h4 id="selectedPlan" class="font-semibold text-blue-800 mb-2"></h4>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-lg line-through text-gray-500">€199</span>
+                            <span id="selectedPrice" class="text-2xl font-bold text-blue-600"></span>
+                            <span class="bg-blue-500 text-white text-xs px-2 py-1 rounded">30% RABATT</span>
+                        </div>
+                    </div>
+                    
+                    <form id="purchaseForm" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Vollständiger Name</label>
+                            <input type="text" name="name" required class="form-input w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ihr vollständiger Name">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">E-Mail-Adresse</label>
+                            <input type="email" name="email" required class="form-input w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="ihre@email.com">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Unternehmen (optional)</label>
+                            <input type="text" name="company" class="form-input w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ihr Unternehmen">
+                        </div>
+                        
+                        <div class="bg-green-50 border border-green-200 p-3 rounded-lg">
+                            <p class="text-sm text-green-800">
+                                <i data-lucide="shield-check" class="h-4 w-4 inline mr-1"></i>
+                                <strong>30-Tage Geld-zurück-Garantie!</strong> Nicht zufrieden? Geld zurück.
+                            </p>
+                        </div>
+                        
+                        <div id="responseMessage"></div>
+                        
+                        <div class="flex gap-3">
+                            <button type="submit" id="submitBtn" class="flex-1 btn-primary text-white px-4 py-2 rounded-lg inline-flex items-center justify-center mobile-button-fix font-semibold">
+                                <span id="submitText">Bestellung absenden</span>
+                                <div id="submitSpinner" class="spinner ml-2 hidden"></div>
+                            </button>
+                            <button type="button" onclick="closePurchaseForm()" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 mobile-button-fix">
+                                Abbrechen
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <section id="downloads" class="py-20 bg-white text-gray-900">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl md:text-4xl font-bold mb-4">Downloads</h2>
+                <p class="text-lg text-gray-600 max-w-3xl mx-auto">
+                    Laden Sie GhettoGUI und alle erforderlichen Abhängigkeiten herunter.
+                </p>
+            </div>
+
+            <div class="mb-16">
+                <h3 class="text-2xl font-semibold text-center mb-8">Hauptdownloads</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-gray-50 rounded-lg shadow-md p-6 card-hover relative">
+                        <div class="absolute -top-2 -right-2">
+                            <span class="bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs px-3 py-1 rounded-full flex items-center">
+                                <i data-lucide="star" class="h-3 w-3 mr-1"></i>
+                                Empfohlen
+                            </span>
+                        </div>
+                        <div class="flex items-center space-x-3 mb-4">
+                            <div class="p-2 bg-blue-100 rounded-lg text-blue-600">
+                                <i data-lucide="package" class="h-6 w-6"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold">GhettoGUI V8.2.1.2</h3>
+                                <div class="flex items-center space-x-2 mt-1">
+                                    <span class="text-xs bg-gray-200 text-gray-800 px-2 py-1 rounded">V8.2.1.2</span>
+                                    <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Installer</span>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 mb-4">ESXi & Proxmox Beta Installer Version</p>
+                        <a href="https://files.drucksprint.ch/Ghetto/GhettoGUI-Setup-V8.2.1.2.zip" 
+                           class="btn-gradient text-white px-4 py-2 rounded-lg inline-flex items-center w-full justify-center">
+                            <i data-lucide="download" class="text-green-600 mb-4h-4 w-4 mr-2"></i>
+                            <p class="text-green-600 mb-4">Download</p>
+                        </a>
+                    </div>
+
+                    <div class="bg-gray-50 rounded-lg shadow-md p-6 card-hover">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <div class="p-2 bg-blue-100 rounded-lg text-blue-600">
+                                <i data-lucide="package" class="h-6 w-6"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold">GhettoGUI V7.8.8</h3>
+                                <div class="flex items-center space-x-2 mt-1">
+                                    <span class="text-xs bg-gray-200 text-gray-800 px-2 py-1 rounded">7.8.8</span>
+                                    <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Installer</span>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 mb-4">ESXi Installer Version (Stabil)</p>
+                        <a href="https://files.drucksprint.ch/Ghetto/GhettoGUI-Setup-V7.8.8.zip" 
+                           class="btn-gradient text-white px-4 py-2 rounded-lg inline-flex items-center w-full justify-center">
+                            <i data-lucide="download" class="text-green-600 mb-4h-4 w-4 mr-2"></i>
+                            <p class="text-green-600 mb-4">Download</p>
+                        </a>
+                    </div>
+
+                    <div class="bg-gray-50 rounded-lg shadow-md p-6 card-hover">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <div class="p-2 bg-blue-100 rounded-lg text-blue-600">
+                                <i data-lucide="file-archive" class="h-6 w-6"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold">GhettoGUI Portable</h3>
+                                <div class="flex items-center space-x-2 mt-1">
+                                    <span class="text-xs bg-gray-200 text-gray-800 px-2 py-1 rounded">8.2.1.2</span>
+                                    <span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Portable</span>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 mb-4">Nur EXE, ohne Installer</p>
+                        <a href="https://files.drucksprint.ch/Ghetto/GhettoGUI_smal.zip" 
+                           class="btn-gradient text-white px-4 py-2 rounded-lg inline-flex items-center w-full justify-center">
+                           <i data-lucide="download" class="text-green-600 mb-4h-4 w-4 mr-2"></i>
+                            <p class="text-green-600 mb-4">Download</p>
+                        </a>
+                    </div>
+
+                    <div class="bg-gray-50 rounded-lg shadow-md p-6 card-hover">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <div class="p-2 bg-blue-100 rounded-lg text-blue-600">
+                                <i data-lucide="file-archive" class="h-6 w-6"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold">GhettoGUI Minimal</h3>
+                                <div class="flex items-center space-x-2 mt-1">
+                                    <span class="text-xs bg-gray-200 text-gray-800 px-2 py-1 rounded">Latest</span>
+                                    <span class="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">Minimal</span>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 mb-4">Minimale Version</p>
+                        <a href="https://files.drucksprint.ch/Ghetto/GhettoGUI_min.zip" 
+                           class="btn-gradient text-white px-4 py-2 rounded-lg inline-flex items-center w-full justify-center">
+                          <i data-lucide="download" class="text-green-600 mb-4h-4 w-4 mr-2"></i>
+                            <p class="text-green-600 mb-4">Download</p>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-12">
+                <h3 class="text-2xl font-bold text-center mb-8">Erforderliche Abhängigkeiten</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div class="dependency-card rounded-lg p-6 card-hover">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <div class="p-2 bg-indigo-100 rounded-lg text-indigo-600">
+                                <i data-lucide="terminal" class="h-6 w-6"></i>
+                            </div>
+                            <h4 class="text-lg font-semibold">PowerShell 5.1+</h4>
+                        </div>
+                        <p class="text-gray-600 mb-4">Windows PowerShell oder PowerShell Core erforderlich</p>
+                        <a href="https://github.com/PowerShell/PowerShell/releases" 
+                           class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                            <i data-lucide="external-link" class="h-4 w-4 inline mr-1"></i>
+                            PowerShell herunterladen
+                        </a>
+                    </div>
+
+                    <div class="dependency-card rounded-lg p-6 card-hover">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <div class="p-2 bg-indigo-100 rounded-lg text-indigo-600">
+                                <i data-lucide="server" class="h-6 w-6"></i>
+                            </div>
+                            <h4 class="text-lg font-semibold">VMware PowerCLI</h4>
+                        </div>
+                        <p class="text-gray-600 mb-4">Für ESXi-Funktionalitäten erforderlich</p>
+                        <a href="https://developer.vmware.com/powercli" 
+                           class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                            <i data-lucide="external-link" class="h-4 w-4 inline mr-1"></i>
+                            PowerCLI herunterladen
+                        </a>
+                    </div>
+
+                    <div class="dependency-card rounded-lg p-6 card-hover">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <div class="p-2 bg-indigo-100 rounded-lg text-indigo-600">
+                                <i data-lucide="network" class="h-6 w-6"></i>
+                            </div>
+                            <h4 class="text-lg font-semibold">SSH Client</h4>
+                        </div>
+                        <p class="text-gray-600 mb-4">Für Proxmox-Verbindungen (in Windows 10+ integriert)</p>
+                        <a href="https://docs.microsoft.com/en-us/windows-server/administration/openssh/openssh_install_firstuse" 
+                           class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                            <i data-lucide="external-link" class="h-4 w-4 inline mr-1"></i>
+                            SSH Setup Guide
+                        </a>
+                    </div>
+
+                    <div class="dependency-card rounded-lg p-6 card-hover">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <div class="p-2 bg-indigo-100 rounded-lg text-indigo-600">
+                                <i data-lucide="shield" class="h-6 w-6"></i>
+                            </div>
+                            <h4 class="text-lg font-semibold">.NET Framework</h4>
+                        </div>
+                        <p class="text-gray-600 mb-4">.NET Framework 4.7.2 oder höher</p>
+                        <a href="https://dotnet.microsoft.com/download/dotnet-framework" 
+                           class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                            <i data-lucide="external-link" class="h-4 w-4 inline mr-1"></i>
+                            .NET Framework herunterladen
+                        </a>
+                    </div>
+
+                    <div class="dependency-card rounded-lg p-6 card-hover">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <div class="p-2 bg-indigo-100 rounded-lg text-indigo-600">
+                                <i data-lucide="key" class="h-6 w-6"></i>
+                            </div>
+                            <h4 class="text-lg font-semibold">Posh-SSH Modul</h4>
+                        </div>
+                        <p class="text-gray-600 mb-4">PowerShell SSH-Modul für erweiterte Funktionen</p>
+                        <div class="code-block">
+                            <pre>Install-Module -Name Posh-SSH -Force</pre>
+                        </div>
+                    </div>
+
+                    <div class="dependency-card rounded-lg p-6 card-hover">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <div class="p-2 bg-indigo-100 rounded-lg text-indigo-600">
+                                <i data-lucide="mail" class="h-6 w-6"></i>
+                            </div>
+                            <h4 class="text-lg font-semibold">SMTP Konfiguration</h4>
+                        </div>
+                        <p class="text-gray-600 mb-4">Für E-Mail-Benachrichtigungen (optional)</p>
+                        <span class="text-sm text-gray-500">Konfiguration in der Anwendung</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-12">
+                <h3 class="text-2xl font-bold text-center mb-8">PowerShell Setup-Befehle</h3>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div class="bg-gray-50 rounded-lg p-6">
+                        <h4 class="text-lg font-semibold mb-4 flex items-center">
+                            <i data-lucide="settings" class="h-5 w-5 mr-2 text-blue-600"></i>
+                            Ausführungsrichtlinie anpassen
+                        </h4>
+                        <p class="text-gray-600 mb-4">Erlaubt die Ausführung von PowerShell-Skripten:</p>
+                        <div class="code-block">
+                            <pre>Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser</pre>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-50 rounded-lg p-6">
+                        <h4 class="text-lg font-semibold mb-4 flex items-center">
+                            <i data-lucide="download" class="h-5 w-5 mr-2 text-blue-600"></i>
+                            PowerCLI Installation
+                        </h4>
+                        <p class="text-gray-600 mb-4">Installiert VMware PowerCLI Module:</p>
+                        <div class="code-block">
+                            <pre>Install-Module -Name VMware.PowerCLI -Force -AllowClobber</pre>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-50 rounded-lg p-6">
+                        <h4 class="text-lg font-semibold mb-4 flex items-center">
+                            <i data-lucide="shield-off" class="h-5 w-5 mr-2 text-blue-600"></i>
+                            PowerCLI Zertifikatsprüfung deaktivieren
+                        </h4>
+                        <p class="text-gray-600 mb-4">Für Entwicklungs-/Testumgebungen:</p>
+                        <div class="code-block">
+                            <pre>Set-PowerCLIConfiguration -InvalidCertificateAction Ignore -Confirm:$false</pre>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-50 rounded-lg p-6">
+                        <h4 class="text-lg font-semibold mb-4 flex items-center">
+                            <i data-lucide="key" class="h-5 w-5 mr-2 text-blue-600"></i>
+                            SSH-Modul Installation
+                        </h4>
+                        <p class="text-gray-600 mb-4">Für Proxmox SSH-Verbindungen:</p>
+                        <div class="code-block">
+                            <pre>Install-Module -Name Posh-SSH -Force</pre>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-50 rounded-lg p-6">
+                        <h4 class="text-lg font-semibold mb-4 flex items-center">
+                            <i data-lucide="check-circle" class="h-5 w-5 mr-2 text-blue-600"></i>
+                            Installation überprüfen
+                        </h4>
+                        <p class="text-gray-600 mb-4">Prüft installierte Module:</p>
+                        <div class="code-block">
+                            <pre>Get-Module -ListAvailable VMware.PowerCLI, Posh-SSH</pre>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-50 rounded-lg p-6">
+                        <h4 class="text-lg font-semibold mb-4 flex items-center">
+                            <i data-lucide="unlock" class="h-5 w-5 mr-2 text-blue-600"></i>
+                            Datei entsperren
+                        </h4>
+                        <p class="text-gray-600 mb-4">Entsperrt heruntergeladene Dateien:</p>
+                        <div class="code-block">
+                            <pre>Unblock-File -Path "C:\Pfad\zur\GhettoGUI-Setup.zip"</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-blue-50 rounded-lg p-8">
+                <h3 class="text-2xl font-bold text-center mb-6">Installation in 6 Schritten</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6">
+                    <div class="text-center">
+                        <div class="w-12 h-12 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-lg mx-auto mb-3">1</div>
+                        <h4 class="font-semibold mb-2">Download</h4>
+                        <p class="text-sm text-gray-600">ZIP-Datei herunterladen</p>
+                    </div>
+                    <div class="text-center">
+                        <div class="w-12 h-12 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-lg mx-auto mb-3">2</div>
+                        <h4 class="font-semibold mb-2">Entpacken</h4>
+                        <p class="text-sm text-gray-600">ZIP-Archiv extrahieren</p>
+                    </div>
+                    <div class="text-center">
+                        <div class="w-12 h-12 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-lg mx-auto mb-3">3</div>
+                        <h4 class="font-semibold mb-2">Entsperren</h4>
+                        <p class="text-sm text-gray-600">Datei freigeben</p>
+                    </div>
+                    <div class="text-center">
+                        <div class="w-12 h-12 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-lg mx-auto mb-3">4</div>
+                        <h4 class="font-semibold mb-2">PowerShell</h4>
+                        <p class="text-sm text-gray-600">Ausführungsrichtlinie</p>
+                    </div>
+                    <div class="text-center">
+                        <div class="w-12 h-12 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-lg mx-auto mb-3">5</div>
+                        <h4 class="font-semibold mb-2">Module</h4>
+                        <p class="text-sm text-gray-600">Abhängigkeiten installieren</p>
+                    </div>
+                    <div class="text-center">
+                        <div class="w-12 h-12 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-lg mx-auto mb-3">✓</div>
+                        <h4 class="font-semibold mb-2">Starten</h4>
+                        <p class="text-sm text-gray-600">GhettoGUI ausführen</p>
+                    </div>
+                </div>
+                
+                <div class="mt-8 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <h4 class="font-semibold text-yellow-800 mb-2">💡 Wichtiger Hinweis</h4>
+                    <p class="text-sm text-yellow-700">
+                        Stellen Sie sicher, dass alle PowerShell-Module vor dem ersten Start von GhettoGUI installiert sind. 
+                        Bei Problemen führen Sie PowerShell als Administrator aus.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+<footer class="bg-gray-900 text-white py-12">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center">
+            <h3 class="text-2xl font-bold mb-4 gradient-text">GhettoGUI</h3>
+            <p class="text-gray-400 mb-4">
+                ESXi & Proxmox Manager V8.2.1.2 (25.10.2025) by Chrigel#71
+            </p>
+            <div class="flex justify-center space-x-6 mb-8">
+                <a href="mailto:Info@drucksprint.ch" class="text-gray-400 hover:text-white transition-colors">
+                    <i data-lucide="mail" class="h-5 w-5 inline mr-1"></i>
+                    Kontakt
+                </a>
+                <a href="mailto:Info@drucksprint.ch" class="text-gray-400 hover:text-white transition-colors">
+                    <i data-lucide="help-circle" class="h-5 w-5 inline mr-1"></i>
+                    Support
+                </a>
+            </div>
+            <div class="border-t border-gray-800 pt-8">
+                <p class="text-sm text-gray-500">
+                    Ein PowerShell-basiertes GUI-Tool zur professionellen Verwaltung von VMware ESXi und Proxmox VE Hosts.
+                </p>
+                <p class="text-xs text-gray-600 mt-4">
+                    <strong>Haftungsausschluss:</strong> Diese Software wird "wie besehen" bereitgestellt. 
+                    Die Nutzung erfolgt auf eigene Verantwortung.
+                </p>
+                
+                <div class="mt-6 flex justify-center items-center space-x-2">
+                    <span class="text-sm text-gray-400">Besucherzähler:</span>
+                    
+                    <div>
+                        <a href='https://www.acadoo.de/'>ghostwriter</a> <script type='text/javascript' src='https://www.fast-counter.net/auth.php?id=0fefb7e8e99687f27343f889d20abded830c69cf' ></script>
+                        <script type="text/javascript" src="https://www.fast-counter.net/de/home/counter/1429785/t/13"> </script>
+                    </div>
+                    </div>
+                </div>
+        </div>
+    </div>
+</footer>
+
+    <script>
+
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // Mobile menu toggle
+        function toggleMobileMenu() {
+            const mobileMenu = document.getElementById('mobile-menu');
+            mobileMenu.classList.toggle('active');
+        }
+
+        // Purchase modal functions
+        function openPurchaseForm(plan) {
+            const modal = document.getElementById('purchaseModal');
+            const planTitle = document.getElementById('selectedPlan');
+            const planPrice = document.getElementById('selectedPrice');
+            
+            const plans = {
+                'professional': {
+                    title: 'Professional Edition',
+                    price: '€139'
+                },
+                'enterprise': {
+                    title: 'Enterprise Edition', 
+                    price: '€279'
+                }
+            };
+            
+            planTitle.textContent = plans[plan].title;
+            planPrice.textContent = plans[plan].price;
+            
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closePurchaseForm() {
+            const modal = document.getElementById('purchaseModal');
+            modal.classList.add('hidden');
+            document.body.style.overflow = 'auto';
+            
+            // Reset form and messages
+            document.getElementById('purchaseForm').reset();
+            document.getElementById('responseMessage').innerHTML = '';
+        }
+
+        // Handle purchase form submission
+        document.getElementById('purchaseForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const submitBtn = document.getElementById('submitBtn');
+            const submitText = document.getElementById('submitText');
+            const submitSpinner = document.getElementById('submitSpinner');
+            const responseMessage = document.getElementById('responseMessage');
+            
+            // Show loading state
+            submitBtn.disabled = true;
+            submitText.textContent = 'Wird gesendet...';
+            submitSpinner.classList.remove('hidden');
+            responseMessage.innerHTML = '';
+            
+            try {
+                // Get form data
+                const formData = new FormData(e.target);
+                const planTitle = document.getElementById('selectedPlan').textContent;
+                const planPrice = document.getElementById('selectedPrice').textContent;
+                
+                // Prepare data for server
+                const orderData = {
+                    name: formData.get('name'),
+                    email: formData.get('email'),
+                    company: formData.get('company') || '',
+                    plan: planTitle,
+                    price: planPrice
+                };
+                
+                // Send to server
+                const response = await fetch('send-order.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(orderData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    let message = '<div class="success-message">';
+                    message += '<h4 class="font-semibold mb-2">✅ Bestellung erfolgreich eingegangen!</h4>';
+                    message += '<p class="text-sm">Vielen Dank für Ihre Bestellung. Sie erhalten in Kürze eine Bestätigung und weitere Informationen.</p>';
+                    if (result.details) {
+                        if (result.details.mail_sent) {
+                            message += '<p class="text-sm mt-2">📧 Bestätigungs-E-Mail wurde versendet.</p>';
+                        }
+                        if (result.details.order_id) {
+                            message += '<p class="text-sm mt-2"><strong>Bestell-ID:</strong> ' + result.details.order_id + '</p>';
+                        }
+                    }
+                    message += '</div>';
+                    responseMessage.innerHTML = message;
+                    
+                    // Reset form after successful submission
+                    setTimeout(() => {
+                        e.target.reset();
+                    }, 2000);
+                } else {
+                    let errorMessage = '<div class="warning-message">';
+                    errorMessage += '<h4 class="font-semibold mb-2">⚠️ Fehler beim Versenden</h4>';
+                    errorMessage += '<p class="text-sm">' + result.message + '</p>';
+                    errorMessage += '<p class="text-sm mt-2">Bitte kontaktieren Sie uns direkt: <a href="mailto:Info@drucksprint.ch" class="underline">Info@drucksprint.ch</a></p>';
+                    errorMessage += '</div>';
+                    responseMessage.innerHTML = errorMessage;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                responseMessage.innerHTML = '<div class="warning-message">' +
+                    '<h4 class="font-semibold mb-2">❌ Verbindungsfehler</h4>' +
+                    '<p class="text-sm">Bitte versuchen Sie es später erneut oder kontaktieren Sie uns direkt: <a href="mailto:Info@drucksprint.ch" class="underline">Info@drucksprint.ch</a></p>' +
+                    '</div>';
+            } finally {
+                // Reset button state
+                submitBtn.disabled = false;
+                submitText.textContent = 'Bestellung absenden';
+                submitSpinner.classList.add('hidden');
+            }
+        });
+
+        // Smooth scrolling for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', function(event) {
+            const mobileMenu = document.getElementById('mobile-menu');
+            const menuButton = event.target.closest('button');
+            
+            if (!menuButton && !mobileMenu.contains(event.target)) {
+                mobileMenu.classList.remove('active');
+            }
+        });
+
+        // Close modal when clicking outside
+        document.getElementById('purchaseModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closePurchaseForm();
+            }
+        });
+
+        // Add touch event handling for buttons
+        document.addEventListener('DOMContentLoaded', function() {
+            const buttons = document.querySelectorAll('button, .mobile-button-fix');
+            buttons.forEach(button => {
+                button.addEventListener('touchstart', function() {
+                    this.style.transform = 'scale(0.98)';
+                });
+                button.addEventListener('touchend', function() {
+                    this.style.transform = 'scale(1)';
+                });
+            });
+        });
+
+        // Intersection Observer for animations
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+
+        // Observe elements for animation
+        document.querySelectorAll('.card-hover').forEach(el => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(20px)';
+            el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+            observer.observe(el);
+        });
+    </script>
 </body>
 </html>
