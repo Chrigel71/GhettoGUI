@@ -118,6 +118,9 @@ EMAIL_USER_PASSWORD=
 # Email FROM
 EMAIL_FROM=root@ghettoVCB
 
+# Email Display Name
+EMAIL_DISPLAY_NAME="ESXi Backup"
+
 # Comma seperated list of receiving email addresses
 EMAIL_TO=auroa@primp-industries.com
 
@@ -1921,8 +1924,13 @@ trap 'rm -f "$LOCK"; rm -rf "${WORKDIR}"; exit 2' 1 2 3 13 15
                 if [[ $? -eq 0 ]]; then 
                     chmod +x "${TMP_EXEC_PATH}"
                     logger "info" "Calling mail script via 'python ${TMP_EXEC_PATH}' for recipients: ${RECIPIENTS}..."
-                    OUTPUT=$(python "${TMP_EXEC_PATH}" -f "${EMAIL_FROM}" -s "${EMAIL_SERVER}" -S "${EMAIL_SERVER_PORT}" -j "${SUBJECT}" -m "${LOG_FILE_PATH}" -u "${EMAIL_USER_NAME}" -p "${EMAIL_USER_PASSWORD}" $(echo "${RECIPIENTS}" | sed 's/,/ /g') 2>&1)
-                    EXIT_CODE=$?
+                    # --- FIX: Falls Display Name leer ist, Standard setzen ---
+                if [ -z "${EMAIL_DISPLAY_NAME}" ]; then
+                EMAIL_DISPLAY_NAME="ESXi Backup"
+                fi
+                # ---------------------------------------------------------
+                OUTPUT=$(python "${TMP_EXEC_PATH}" -f "${EMAIL_FROM}" -N "${EMAIL_DISPLAY_NAME}" -s "${EMAIL_SERVER}" -S "${EMAIL_SERVER_PORT}" -j "${SUBJECT}" -m "${LOG_FILE_PATH}" -u "${EMAIL_USER_NAME}" -p "${EMAIL_USER_PASSWORD}" $(echo "${RECIPIENTS}" | sed 's/,/ /g') 2>&1)
+					EXIT_CODE=$?
                     if [ $EXIT_CODE -ne 0 ]; then logger "info" "ERROR: Email script failed with exit code ${EXIT_CODE}."; logger "info" "Email script output: ${OUTPUT}"; else logger "info" "Email script executed."; logger "info" "Email script output: ${OUTPUT}"; fi
                     rm "${TMP_EXEC_PATH}"
                 else

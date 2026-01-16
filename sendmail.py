@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # GhettoVCB-GUI Sendmail (ESXi 6.0 - 8.0 Compatible)
-# V7.6 - Full HTML Report + ESXi 6 Netcat Fix
-#
+# V7.7 - Full HTML Report + ESXi 6 Socket Fix (No more NC)
+# Ghetto GUI 8.3.3  15.01.2026
 # Features:
 # - Full HTML Summary (Parsing of GhettoVCB Logs)
 # - Display Name Support (-N)
-# - ESXi 6.0 Fix: Prioritizes 'nc' on Port 25 to avoid OpenSSL/Broken Pipe errors
+# - ESXi 6.0 Fix: Uses native Python Sockets instead of unreliable 'nc'
 
 from __future__ import print_function
 import sys, os, argparse, socket, subprocess, time
@@ -236,6 +236,53 @@ def _smtp_try_send(subject, html_body, to_csv, from_addr, display_name, host, po
         return True
     except: return False
 
+def _socket_try_send(subject, html_body, to_csv, from_addr, display_name, host, port, is_important=False):
+    """
+    NEU fuer V7.7: Direkte Socket-Kommunikation, um 'nc' auf ESXi 6 zu umgehen.
+    Funktioniert am besten fuer Port 25 ohne Auth (Standard fuer interne Relays).
+    """
+    try:
+        sys.stdout.write("INFO: Attempting Python Native SOCKET (ESXi 6 Fix)...\n")
+        raw_msg = build_message(subject, html_body, to_csv, from_addr, display_name, is_important)
+        
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(20)
+        s.connect((host, int(port)))
+        
+        # Banner lesen
+        s.recv(1024)
+
+        def send_cmd(cmd):
+            # Kompatibilitaet: In Python 2 ist string okay, in 3 bytes. 
+            # Wir nehmen str und lassen socket das handeln oder encoden falls noetig.
+            try: s.send(cmd.encode('utf-8') + b'\r\n')
+            except: s.send(cmd + '\r\n')
+            return s.recv(1024)
+
+        # SMTP Dialog
+        send_cmd('HELO ' + socket.gethostname())
+        send_cmd('MAIL FROM: <' + from_addr + '>')
+        
+        recipients = _split_recipients(to_csv)
+        for r in recipients:
+            send_cmd('RCPT TO: <' + r + '>')
+        
+        send_cmd('DATA')
+        
+        # Body senden
+        try: s.send(raw_msg.encode('utf-8') + b'\r\n.\r\n')
+        except: s.send(raw_msg + '\r\n.\r\n')
+        
+        s.recv(1024) # Antwort auf DATA
+        s.send(b'QUIT\r\n' if sys.version_info[0] >= 3 else 'QUIT\r\n')
+        s.close()
+        
+        sys.stdout.write("INFO: Email successfully sent (Socket Fix)\n")
+        return True
+    except Exception as e:
+        sys.stderr.write("WARN: Socket Fix failed: %s\n" % str(e))
+        return False
+
 def _openssl_fallback(subject, html_body, to_csv, from_addr, display_name, host, port, user, pwd, tls_mode, auth_mode, is_important=False):
     recipients = _split_recipients(to_csv)
     if not recipients: raise RuntimeError("No recipients.")
@@ -326,7 +373,14 @@ def send_email(subject, body, to_addr, from_addr, display_name, smtp_server, smt
     try: smtp_port = int(smtp_port_str)
     except: sys.stderr.write("ERROR: Invalid port\n"); return
     
+    # 1. Standard smtplib (Modernes ESXi)
     if _smtp_try_send(subject, body, to_addr, from_addr, display_name, smtp_server, smtp_port, user, password, tls_mode, auth_mode, is_important): return
+    
+    # 2. NEU: Socket Fix fuer ESXi 6 (umgeht das kaputte NC)
+    # Funktioniert am besten ohne Auth (Internes Relay)
+    if _socket_try_send(subject, body, to_addr, from_addr, display_name, smtp_server, smtp_port, is_important): return
+
+    # 3. Alter Fallback (NC/OpenSSL)
     if openssl_fallback:
         try: _openssl_fallback(subject, body, to_addr, from_addr, display_name, smtp_server, smtp_port, user, password, tls_mode, auth_mode, is_important); return
         except Exception as e: sys.stderr.write("ERROR: Fallback failed: %s\n" % str(e))
