@@ -117,7 +117,7 @@ GhettoGUI verfügt über eine eigene, hochoptimierte Python-Mail-Engine (`sendma
 * **Thin:** Wächst mit den Daten (Platzsparend).
 * **Zeroedthick:** Reserviert den Platz, schreibt Nullen beim ersten Schreibzugriff.
 * **Eagerzeroedthick:** Schreibt sofort alles mit Nullen voll (Beste Performance, dauert am längsten beim Backup).
-* **2gbsparse:** Splittet die Disk in 2GB Häppchen (für NFS-Kompatibilität).
+
 
 ---
 
@@ -139,5 +139,6 @@ A: Da es sich um ein unkompiliertes Admin-Skript handelt, das Netzwerkzugriff be
 * **Code & GUI:** Chrigel#71 & Gemini AI
 * **Core Logic:** Basiert auf `ghettoVCB` von William Lam.
 * **Lizenz:** Open Source / Community Use.
+
 
 *Die Nutzung erfolgt auf eigene Gefahr. Testen Sie Backups regelmäßig auf Wiederherstellbarkeit!*
