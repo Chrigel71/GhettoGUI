@@ -1,103 +1,143 @@
-# GhettoVCB GUI - Manager V6.9.8 für ESXi 6.0 - 8.0
+# GhettoGUI - ESXi & Proxmox Manager V8.3.4
 
-Ein PowerShell-basiertes GUI-Tool zur umfassenden Verwaltung von `ghettoVCB.sh` auf VMware ESXi-Hosts. Dieses Tool wurde entwickelt, um die Konfiguration, Installation, Ausführung und Überwachung von Backups und Replikationen mit `ghettoVCB` drastisch zu vereinfachen und eine intuitive, zentrale Steuerungsoberfläche zu bieten.
+**Professionelle Backup-Automatisierung, Replikation & Management für VMware ESXi & Proxmox VE.**
 
-## Features im Überblick
+> **Status:** Stable Release
+> **Version:** 8.3.4
+> **System:** PowerShell (Windows 7/810/11/Server)
 
-* **Grafische Oberfläche:** Eine übersichtliche Windows-Oberfläche zur Steuerung aller Funktionen, aufgeteilt in logische Bereiche.
-* **Installation & Patching:** Installiert die offizielle Version von ghettoVCB sowie ein speziell angepasstes und getestetes Patch-Skript direkt aus der GUI. Die Installationsquelle (GitHub oder lokale Datei) ist wählbar.
-* **Umfassende Backup-Konfiguration:** Detailliertes Konfigurieren von Backup-Jobs, inklusive Backup-Ziel, Rotations-Strategie, Disk-Format (`thin`, `thick`, etc.), Snapshot-Optionen und E-Mail-Benachrichtigungen.
-* **Zwei Replikations-Methoden:**
-    * **Direkte Replikation (Host-zu-Host):** Repliziert VMs direkt auf einen anderen ESXi-Host. Unterstützt eine "Online"-Methode (mit Temp-Klon, VM bleibt an) und eine "Offline"-Methode (VM wird für den Transfer heruntergefahren). Der temporäre Speicherort ist wählbar.
-    * **Replikation via Zwischenspeicher (NAS):** Nutzt einen zentralen Speicher (z.B. NAS) als Puffer, um eine VM von einem Host zu sichern und auf einem anderen wiederherzustellen.
-* **Sequenzielle Multi-VM-Jobs:** Wähle mehrere VMs aus und starte einen manuellen Replikations-Job. Die GUI arbeitet die VMs stabil nacheinander ab und sendet am Ende einen einzigen zusammenfassenden E-Mail-Bericht.
-* **Zeitplanung für Backups & Replikationen:** Richten Sie per Radio-Button-Auswahl automatische, zeitgesteuerte Backups ODER Replikationen über den Cron-Dienst des ESXi-Hosts ein.
-* **Detaillierte E-Mail-Berichte:** Konfigurierbare E-Mail-Benachrichtigungen, die einen übersichtlichen HTML-Bericht mit farblicher Status-Hervorhebung, Job-Details, Konfiguration, Speicherplatz-Analyse und einer Liste aller verarbeiteten VMs senden.
-* **Live-Monitoring:** Anzeige des Netzwerk-Traffics einer ausgewählten physischen Netzwerkkarte (vmnic) in MB/s direkt in der GUI.
-* **Integrierte SSH-Konsole:** Eine leistungsstarke Dual-Pane-SSH-Konsole zur direkten Verwaltung von Quell- und Zielhost. Inklusive Assistenten zur Einrichtung des passwortlosen SSH-Logins und zur Verwaltung von Cron-Jobs.
+GhettoGUI ist eine leistungsstarke PowerShell-Anwendung, die die Verwaltung von VMware ESXi-Hosts radikal vereinfacht. Sie dient als Frontend für das bewährte `ghettoVCB`-Skript, erweitert dieses jedoch massiv um Funktionen wie **Host-zu-Host Replikation**, **Live-Restore**, **Update-Management** und ein **modernes E-Mail-Reporting**.
 
-## Voraussetzungen
-
-* **Windows-Betriebssystem:** Auf dem der Client mit der GUI läuft.
-* **PowerShell 5.1 oder höher:** Standardmässig bei Windows 10/11 enthalten. Für volle Funktionalität wird PowerShell 7 empfohlen.
-* **Posh-SSH Modul:** Wird für die SSH-Verbindungen benötigt. Wenn es nicht gefunden wird, bietet die GUI an, es automatisch für den aktuellen Benutzer zu installieren (Internetverbindung auf dem PC erforderlich).
-* **Netzwerkzugriff:** Vom PC auf den/die ESXi-Host(s) (Port 22/SSH muss erreichbar sein). Für die direkte Replikation muss auch die Verbindung von Host zu Host auf Port 22 möglich sein.
-
-## Installation & Erster Start
-
-1.  Laden Sie die aktuelle `GhettoGUI_V6.7.7.zip`-Datei herunter und entpacken Sie sie in einen Ordner.
-2.  **Wichtig:** Klicken Sie mit der rechten Maustaste auf die `GhettoGUI_V6.7.7.ps1`-Datei, wählen Sie "Eigenschaften" und setzen Sie unten den Haken bei "Zulassen" (Unblock), falls dieser vorhanden ist.
-3.  **PowerShell Ausführungsrichtlinie anpassen:** Öffnen Sie PowerShell als **Administrator** und führen Sie einmalig den folgenden Befehl aus, um das Starten von Skripten zu erlauben:
-    ```powershell
-    Set-ExecutionPolicy Unrestricted
-    ```
-4.  **Starten:** Führen Sie das Skript aus, indem Sie mit der rechten Maustaste darauf klicken und "Mit PowerShell ausführen" wählen.
+Es sind keine Linux- oder SSH-Kenntnisse erforderlich – alles wird über die Windows-Oberfläche gesteuert.
 
 ---
 
-## Bedienungsanleitung & Button-Referenz
+## 🚀 Highlights der Version 8.3.4
 
-### Bereich 1: Verbindung & Hauptkonfiguration (Oben links)
-
-* **ESXi Host IP / Username:** Felder zur Eingabe der Verbindungsdaten für den primären ESXi-Host (Quell-Host).
-* **Verbinden:** Baut eine SSH-Verbindung zum eingetragenen Host auf. Fordert zur Passworteingabe auf und aktiviert nach Erfolg die meisten anderen GUI-Funktionen.
-* **Trennen:** Schliesst alle aktiven SSH-Verbindungen (zum Quell-, Ziel- und Konsolen-Host) und setzt die GUI zurück.
-* **Posh-SSH prüfen / Version anzeigen:** Öffnet ein Diagnosefenster, das die installierten Versionen von PowerShell und dem Posh-SSH-Modul anzeigt. Nützlich zur Fehlersuche.
-
-### Bereich 2: GhettoVCB Konfiguration (Backup-Einstellungen)
-
-Hier werden die Einstellungen für **Standard-Backups** (nicht Replikationen) vorgenommen. Diese werden in der `ghettoVCB.conf` auf dem Host gespeichert.
-
-* `GhettoVCB-Pfad`: **Wichtig!** Das Stammverzeichnis auf einem Datastore, in dem die GhettoVCB-Skripte liegen und Log-Dateien erstellt werden (z.B. `/vmfs/volumes/datastore1/ghettoVCB`). Der **"..."**-Button öffnet einen Dialog zur Auswahl eines Datastores.
-* `Backup Volume`: Der Datastore, auf dem die Backup-Ordner erstellt werden sollen.
-* `Unterordner`: Optionaler Unterordner im "Backup Volume" zur besseren Organisation.
-* `Rotation Count`: Wie viele alte Backups pro VM aufbewahrt werden sollen, bevor das älteste gelöscht wird.
-* `Festes Backup-Ziel`: Wenn aktiv, wird kein Datums-Unterordner erstellt. Jedes Backup überschreibt das vorherige am selben Ort. Nützlich für z.B. Snapshots auf SAN-Ebene.
-* `Disk Format`: Wählt das Format der virtuellen Festplatten im Backup (z.B. `thin` für platzsparend).
-* `Snap Memory / Snap Quiesce`: Optionen für die Snapshot-Erstellung. `Quiesce` erfordert VMware Tools und sorgt für anwendungskonsistente Snapshots.
-* **VMs laden:** Füllt die untere Liste mit allen auf dem Host registrierten VMs.
-* **Auswahl übernehmen:** Überträgt die Namen der in der Liste angehakten VMs in das darüberliegende Textfeld. Nur VMs in diesem Textfeld werden gesichert.
-* **Einst. Host laden/speichern:** Diese Buttons speichern oder laden **alle Einstellungen der gesamten GUI** (Backup, Replikation, E-Mail etc.) in/aus einer `hostname.ghetto.json`-Datei auf Ihrem PC. Perfekt, um Konfigurationen für verschiedene Hosts zu verwalten.
-* **Ghetto-Konfig. auf ESXi speichern:** Schreibt die Einstellungen aus diesem Bereich in die `ghettoVCB.conf`-Datei auf dem Host. **Muss vor jedem Backup-Lauf ausgeführt werden, wenn Änderungen gemacht wurden!**
-
-### Bereich 3: Installation & Aktionen (Oben rechts)
-
-* **Offizielles GhettoVCB installieren:** Lädt die offizielle Version von GitHub oder einer lokalen ZIP-Datei herunter, entpackt sie und legt sie im angegebenen "GhettoVCB-Pfad" ab.
-* **GhettoVCB Patch:** Installiert unser angepasstes `ghettoVCB_patch.sh`-Skript, das für die erweiterten Logging-Funktionen für die E-Mail-Berichte **erforderlich** ist.
-* **E-Mail-Skript installieren:** Installiert unsere angepasste `sendmail.py`, die für die detaillierten, farbigen HTML-Berichte benötigt wird.
-* **SSH-Konsole:** Öffnet das Dual-Pane SSH-Fenster für erweiterte Verwaltungsaufgaben.
-
-### Integrierte SSH-Konsole
-
-Ein mächtiges Werkzeug zur direkten Verwaltung und Einrichtung.
-
-* **Dual-Pane-Ansicht:** Links der Quell-Host, rechts der Ziel-Host. Jeder Bereich hat eigene Verbindungs-Buttons und eine Kommandozeile.
-* **Einrichtungs-Assistent (Host-zu-Host Setup):** Eine Schritt-für-Schritt-Anleitung zur Einrichtung der **passwortlosen SSH-Verbindung**, die für die direkte Replikation zwingend erforderlich ist.
-    * **1. Schlüssel & Transfer-Skript erstellen:** Generiert ein `.bat`-Skript auf Ihrem PC (`C:\temp\setup_keys.bat`). **Sie müssen dieses Skript manuell ausführen.** Es erstellt die SSH-Schlüssel und kopiert sie auf Ihre Hosts (fragt dabei nach den Passwörtern).
-    * **2. Berechtigungen setzen:** Nachdem Schritt 1 erfolgreich war, führt dieser Button die nötigen `chmod`-Befehle auf beiden Hosts aus, um die Schlüssel zu aktivieren.
-    * **3. Finalen Verbindungstest durchführen:** Führt einen Test-SSH-Befehl vom Quell- zum Ziel-Host aus. Wenn "ERFOLG!" erscheint, ist die Einrichtung abgeschlossen.
-    * **Verwaiste Replikationen bereinigen:** Ein "Notfall"-Button. Er beendet alle hängengebliebenen Replikations-Prozesse und löscht temporäre Dateien und Sperrdateien (`.lock`) auf dem Host.
-* **Geplante Tasks (Cron):**
-    * **Alle Tasks anzeigen:** Listet den Inhalt der Cron-Tabelle des Hosts mit Zeilennummern auf.
-    * **Cron Diagnose-Info abrufen:** Führt ein Diagnose-Skript aus, das den Status des Cron-Dienstes und die letzten Log-Einträge anzeigt.
-    * **Task-Nr. zum Löschen:** Geben Sie hier eine Zeilennummer aus der Liste ein, um einen spezifischen Job zu löschen.
-    * **Task löschen:** Löscht die ausgewählte Zeile.
-    * **Alle GhettoGUI Tasks löschen:** Entfernt alle Cron-Jobs, die von GhettoGUI erstellt wurden.
+* **Universeller E-Mail Support:**
+    * **NEU:** Eigener **Socket-Fallback für ESXi 6.0**. Umgeht das Problem fehlender Python-Bibliotheken (`smtplib`) und instabiler `nc`-Pipes auf älteren Hosts.
+    * Unterstützung für **benutzerdefinierte Absendernamen** (Display Name).
+    * HTML-Reports mit Status-Farben und detaillierten Statistiken.
+* **Multi-Hypervisor:** Volle Unterstützung für **ESXi 6.0 - 8.0** und **Proxmox VE 8.0 - 9.0**.
+* **Intelligente Replikation:** Automatische Erkennung von Thin-Provisioning und "Hole Punching" für effizienten Speicherplatzverbrauch.
+* **Robustheit:** Automatische Korrektur von leeren Konfigurations-Variablen und erhöhtes Timeout (60s) für langsame SSH-Verbindungen.
 
 ---
 
-## Downloads & Sicherheit
+## 📋 Inhaltsverzeichnis
 
-### Sicherheit und Virenwarnung
+1.  [Voraussetzungen](#-voraussetzungen)
+2.  [Installation & Start](#-installation--start)
+3.  [Funktionsübersicht](#-funktionsübersicht)
+    * [Backup & Scheduler](#1-backup--scheduler)
+    * [Replikation (H2H)](#2-replikation-host-to-host)
+    * [Restore & Recovery](#3-restore--recovery)
+    * [Tools & Updates](#4-tools--updates)
+4.  [Detaillierte Konfiguration](#-detaillierte-konfiguration)
+5.  [Troubleshooting](#-troubleshooting)
 
-Das Programm ist virenfrei. Windows Defender kann aufgrund des Verhaltensmusters (Herunterladen von Dateien, Aufbau von SSH-Verbindungen) einen Fehlalarm auslösen. Dies ist normal für unsignierte Administrations-Tools. Fügen Sie bei Bedarf eine Ausnahme für die Skript-Datei hinzu.
+---
 
-### Haftungsausschluss
+## 💻 Voraussetzungen
 
-Diese Software wird "wie besehen" ohne Gewährleistung bereitgestellt. Die Nutzung erfolgt auf eigene Gefahr.
+* **Client:** Windows PC mit PowerShell 5.1 oder neuer.
+* **Server:**
+    * VMware ESXi: 6.0, 6.5, 6.7, 7.0, 8.0 (Free & Licensed)
+    * Proxmox VE: 8.x, 9.x
+* **Netzwerk:** SSH-Zugriff (Port 22) vom Client zum Server muss möglich sein.
 
-### Lizenz
+---
 
+## 🔧 Installation & Start
 
-Dieses GUI-Tool ist frei verfügbar. Das zugrundeliegende `ghettoVCB.sh`-Skript unterliegt der Lizenz seines ursprünglichen Autors, William Lam.
+1.  Laden Sie die Datei `GhettoGUI_V8.3.4.ps1` herunter.
+2.  Rechtsklick auf die Datei -> **"Mit PowerShell ausführen"**.
+3.  **Wichtig beim ersten Start:**
+    * Gehen Sie auf den Reiter **"Setup / Patch Host"**.
+    * Klicken Sie auf **"Host Patchen & Vorbereiten"**.
+    * *Dies lädt die notwendigen Skripte (`ghettoVCB.sh`, `sendmail.py` inkl. Socket-Fix) auf den Host und richtet die Firewall-Regeln für ausgehende E-Mails ein.*
 
+> **Sicherheitshinweis:** Windows Defender kann bei unsignierten PowerShell-Skripten warnen. Dies ist ein "False Positive", da das Skript Netzwerkverbindungen aufbaut und Dateien herunterlädt. Sie können das Skript nach Prüfung des Quellcodes freigeben.
+
+---
+
+## 📖 Funktionsübersicht
+
+### 1. Backup & Scheduler
+
+Erstellen Sie Backups auf lokale Datastores oder NFS-Shares.
+
+* **Snapshot-Handling:** Wählbar zwischen `Memory` (RAM mitsichern) und `Quiesce` (Dateisystem einfrieren).
+* **Rotation:** Legen Sie fest, wie viele alte Backups behalten werden (z.B. "3").
+* **Zeitplaner (Cron):**
+    * Erstellen Sie Jobs für Täglich, Wöchentlich, **2-Wöchentlich** oder **Monatlich**.
+    * Das GUI generiert automatisch den korrekten Cron-String und trägt ihn in die `/var/spool/cron/crontabs/root` ein.
+    * Verwaltung existierender Jobs (Löschen/Anzeigen) direkt in der GUI.
+
+### 2. Replikation (Host-to-Host)
+
+Klonen Sie VMs direkt von einem ESXi auf einen anderen – ohne vCenter!
+
+* **Methode: Offline (Sicher):** Fährt die VM herunter, repliziert sie und startet sie wieder. Garantiert 100% Datenkonsistenz.
+* **Methode: Online (Live):** Erstellt einen temporären Klon der laufenden VM. Die Quell-VM bleibt die ganze Zeit erreichbar.
+* **Methode: Via NAS:** Repliziert zuerst auf einen Zwischenspeicher (z.B. Synology/QNAP via NFS) und von dort auf den Ziel-Host. Ideal bei langsamen direkten Verbindungen.
+* **Thin-Check:** Das System prüft, ob `vmkfstools` das "Thin Provisioning" beibehalten hat. Falls nicht, wird automatisch `vmkfstools -K` (Hole Punching) ausgeführt, um den Speicherplatz wieder freizugeben.
+
+### 3. Restore & Recovery
+
+Ein vollständiger Assistent zur Wiederherstellung:
+
+1.  Wählen Sie den Backup-Ordner auf dem Datastore.
+2.  Das Tool listet alle verfügbaren Backups auf.
+3.  Klicken Sie auf **"Restore Starten"**.
+4.  **Live-Log:** Verfolgen Sie den Kopiervorgang in Echtzeit im Log-Fenster (Fortschrittsanzeige).
+5.  Die VM wird automatisch registriert und ist sofort startklar.
+
+### 4. Tools & Updates
+
+Ein "Schweizer Taschenmesser" für ESXi-Admins:
+
+* **ESXi Updates:** Installieren Sie Patches (`.zip` Depots oder `.vib` Dateien) direkt über die GUI. Das Tool lädt die Datei hoch und führt `esxcli software vib update` aus.
+* **SSH Key Manager:** Erstellt und verteilt RSA/ECDSA-Schlüsselpaare für passwortlosen Login zwischen Hosts (notwendig für automatisierte Replikation).
+* **USB / Disk Wipe:** *Vorsicht!* Ein Tool zum Löschen der Partitionstabelle (`partedUtil mklabel msdos`) auf externen Datenträgern, um diese wieder nutzbar zu machen.
+* **Kill Tasks:** Hängende Backup-Prozesse können per Knopfdruck beendet werden.
+
+---
+
+## ⚙️ Detaillierte Konfiguration
+
+### E-Mail Einstellungen
+GhettoGUI verfügt über eine eigene, hochoptimierte Python-Mail-Engine (`sendmail.py` V7.7).
+
+* **ESXi 6.x:** Nutzt einen speziellen **Socket-Mode**, da ältere ESXi-Versionen kein modernes Python `smtplib` besitzen und `netcat` unzuverlässig ist.
+* **ESXi 7.x/8.x:** Nutzt modernes Python 3 mit TLS/SSL Unterstützung.
+* **Config:** Unterstützt SMTP-Auth, Port-Wahl (25/465/587) und benutzerdefinierte Absender ("Display Name").
+
+### Disk Formate
+* **Thin:** Wächst mit den Daten (Platzsparend).
+* **Zeroedthick:** Reserviert den Platz, schreibt Nullen beim ersten Schreibzugriff.
+* **Eagerzeroedthick:** Schreibt sofort alles mit Nullen voll (Beste Performance, dauert am längsten beim Backup).
+* **2gbsparse:** Splittet die Disk in 2GB Häppchen (für NFS-Kompatibilität).
+
+---
+
+## ❓ Troubleshooting / FAQ
+
+**F: Mein Backup bricht ab mit "Snapshot error".**
+A: Prüfen Sie, ob "Quiesce" aktiviert ist und ob die VMware Tools in der VM aktuell sind. Deaktivieren Sie "Quiesce" testweise.
+
+**F: Die E-Mail kommt nicht an (ESXi 6.0).**
+A: Stellen Sie sicher, dass Sie **"Patch Host"** ausgeführt haben. Die Version V8.3.4 installiert einen speziellen Fix für ESXi 6, der defekte Pipes umgeht. Prüfen Sie zudem die Firewall (Port 25/587 ausgehend).
+
+**F: Windows Defender blockiert das Skript.**
+A: Da es sich um ein unkompiliertes Admin-Skript handelt, das Netzwerkzugriff benötigt, ist dies normal. Fügen Sie eine Ausnahme hinzu oder führen Sie es in einer vertrauenswürdigen Umgebung aus.
+
+---
+
+## 📜 Credits & Lizenz
+
+* **Code & GUI:** Chrigel#71 & Gemini AI
+* **Core Logic:** Basiert auf `ghettoVCB` von William Lam.
+* **Lizenz:** Open Source / Community Use.
+
+*Die Nutzung erfolgt auf eigene Gefahr. Testen Sie Backups regelmäßig auf Wiederherstellbarkeit!*
