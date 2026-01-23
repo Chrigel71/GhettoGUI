@@ -1,4 +1,4 @@
-# GhettoGUI - ESXi & Proxmox Manager V8.4.4
+# GhettoGUI - ESXi & Proxmox Manager V8.5.0
 
 **Professionelle Backup-Automatisierung, Replikation & Management für VMware ESXi & Proxmox VE.**
 
@@ -12,7 +12,7 @@ Es sind keine Linux- oder SSH-Kenntnisse erforderlich – alles wird über die W
 
 ---
 
-## 🚀 Highlights der Version 8.3.4
+## 🚀 Highlights der Version 8.5.0
 
 * **Universeller E-Mail Support:**
     * **NEU:** Eigener **Socket-Fallback für ESXi 6.0**. Umgeht das Problem fehlender Python-Bibliotheken (`smtplib`) und instabiler `nc`-Pipes auf älteren Hosts.
@@ -143,4 +143,5 @@ A: Da es sich um ein unkompiliertes Admin-Skript handelt, das Netzwerkzugriff be
 
 
 *Die Nutzung erfolgt auf eigene Gefahr. Testen Sie Backups regelmäßig auf Wiederherstellbarkeit!*
+
 
