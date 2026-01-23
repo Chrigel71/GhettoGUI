@@ -1,9 +1,9 @@
-# GhettoGUI - ESXi & Proxmox Manager V8.3.4
+# GhettoGUI - ESXi & Proxmox Manager V8.4.4
 
 **Professionelle Backup-Automatisierung, Replikation & Management für VMware ESXi & Proxmox VE.**
 
 > **Status:** Stable Release
-> **Version:** 8.3.4
+> **Version:** 8.4.4
 > **System:** PowerShell (Windows 7/810/11/Server)
 
 GhettoGUI ist eine leistungsstarke PowerShell-Anwendung, die die Verwaltung von VMware ESXi-Hosts radikal vereinfacht. Sie dient als Frontend für das bewährte `ghettoVCB`-Skript, erweitert dieses jedoch massiv um Funktionen wie **Host-zu-Host Replikation**, **Live-Restore**, **Update-Management** und ein **modernes E-Mail-Reporting**.
@@ -117,6 +117,7 @@ GhettoGUI verfügt über eine eigene, hochoptimierte Python-Mail-Engine (`sendma
 * **Thin:** Wächst mit den Daten (Platzsparend).
 * **Zeroedthick:** Reserviert den Platz, schreibt Nullen beim ersten Schreibzugriff.
 * **Eagerzeroedthick:** Schreibt sofort alles mit Nullen voll (Beste Performance, dauert am längsten beim Backup).
+* **Disabel Holepunching für Datenbank Server (SQL etc.)
 
 
 ---
@@ -142,3 +143,4 @@ A: Da es sich um ein unkompiliertes Admin-Skript handelt, das Netzwerkzugriff be
 
 
 *Die Nutzung erfolgt auf eigene Gefahr. Testen Sie Backups regelmäßig auf Wiederherstellbarkeit!*
+
