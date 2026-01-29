@@ -45,7 +45,7 @@ def create_summary(log_content):
     """
     summary = {
         "status": "Unbekannt", "duration": "N/A", "start_time": "N/A", "end_time": "N/A",
-        "final_size": "N/A",
+        "final_size": "N/A", "avg_speed": "N/A",
         "vms_processed": [], "vm_report_lines": [], "errors": [], "warnings": [], "infos": [],
         "config": [], "storage_before": [], "storage_after": [], "directory_listing": [], "detailed_log": []
     }
@@ -66,8 +66,14 @@ def create_summary(log_content):
                     if rep.startswith('-'): rep = rep[1:].strip()
                     if rep: vm_report_lines.append(rep)
             continue
+        # Bestehende Zeilen...
         if "final status:" in s_lower: summary["status"] = s[s_lower.find("final status:") + len("final status:"):].replace("#", "").strip(); continue
         if "final size:" in s_lower: summary["final_size"] = s[s_lower.find("final size:") + len("final size:"):].strip(); continue
+        
+        # NEU: Extrahiere den Average Speed aus dem Log
+        if "average speed:" in s_lower:
+            summary["avg_speed"] = s[s_lower.find("average speed:") + len("average speed:"):].strip()
+            continue
         if "initiate backup for" in s_lower:
             vm = s[s_lower.find("initiate backup for") + len("initiate backup for"):].strip(); current_vm = vm
             if vm and vm not in summary["vms_processed"]: summary["vms_processed"].append(vm)
@@ -159,6 +165,10 @@ def create_summary(log_content):
     parts.append("<li><b>Endzeit:</b> %s</li>" % (html_escape(summary["end_time"]) if summary["end_time"] != "N/A" else "<em>Job nicht beendet</em>"))
     parts.append("<li><b>Dauer:</b> %s</li>" % html_escape(summary["duration"]))
     if summary["final_size"] != "N/A": parts.append("<li><b>Groesse:</b> %s</li>" % html_escape(summary["final_size"]))
+    
+    # NEU: Average Speed unter Groesse einfügen
+    if summary.get("avg_speed") and summary["avg_speed"] != "N/A":
+        parts.append("<li><b>Durchschnitts-Speed:</b> %s</li>" % html_escape(summary["avg_speed"]))
     parts.append("</ul><hr>")
     if summary.get("vms_processed_pretty"):
         parts.append("<h3>Verarbeitete VMs (%d)</h3>" % len(summary["vms_processed_pretty"]))

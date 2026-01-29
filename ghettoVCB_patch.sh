@@ -7,7 +7,7 @@ export PATH
 # https://github.com/lamw/ghettoVCB
 # http://communities.vmware.com/docs/DOC-8760
 # Patched by AI for enhanced email notifications and robust root check
-# Use for GhettoGUI_V7.0.3  Christian Furrer, 10.09.2025
+# Use for GhettoGUI_V8.7.0  Christian Furrer, 29.01.2026
 # Fixer Pfad O.K
 # Erweitertes email Log
 
@@ -1369,27 +1369,65 @@ VM_NVRAM_FILE=$(grep "nvram" "${VMX_PATH}" | awk -F "\"" '{print $2}')
                                     logger "info" "ERROR: wrong DISK_BACKUP_FORMAT \"${DISK_BACKUP_FORMAT}\" specified for ${VM_NAME}"
                                     VM_VMDK_FAILED=1
                                 else
+                                    # Temporäre Datei für vmkfstools-Details (interner Puffer)
                                     VMDK_OUTPUT=$(mktemp ${WORKDIR}/ghettovcb.XXXXXX)
-                                    tail -f "${VMDK_OUTPUT}" &
-                                    TAIL_PID=$!
 
                                     [[ -z "$ADAPTERTYPE_DEPRECATED" ]] && ADAPTER_FORMAT=$(grep -i "ddb.adapterType" "${SOURCE_VMDK}" | awk -F "=" '{print $2}' | sed -e 's/^[[:blank:]]*//;s/[[:blank:]]*$//;s/"//g')
                                     [[ -n "${ADAPTER_FORMAT}" ]] && ADAPTER_FORMAT="-a ${ADAPTER_FORMAT}"
 
-                                    logger "debug" "${VMKFSTOOLS_CMD} -i \"${SOURCE_VMDK}\" ${ADAPTER_FORMAT} ${FORMAT_OPTION} \"${DESTINATION_VMDK}\""
-                                    eval ${VMKFSTOOLS_CMD} -i '"${SOURCE_VMDK}"' ${ADAPTER_FORMAT} ${FORMAT_OPTION} '"${DESTINATION_VMDK}"' > "${VMDK_OUTPUT}" 2>&1
+                                    # Quellgrösse für Prozentberechnung ermitteln
+                                    SRC_SIZE_SECTORS=$(grep "RW" "${SOURCE_VMDK}" | grep "VMFS" | awk '{print $2}')
+                                    TOTAL_GB=$(echo "${SRC_SIZE_SECTORS}" | awk '{printf "%.1f", $1*512/1024/1024/1024}')
 
+                                    # Start-Zeitstempel für Geschwindigkeitsmessung
+                                    CLONE_START_SEC=$(date +%s)
+                                    echo -e "$(date +%H:%M:%S): Cloning disk '${SOURCE_VMDK}' (Total: ${TOTAL_GB} GB)..." >> "${LOG_OUTPUT}"
+                                    sync
+
+                                    # vmkfstools im Hintergrund starten
+                                    eval ${VMKFSTOOLS_CMD} -i '"${SOURCE_VMDK}"' ${ADAPTER_FORMAT} ${FORMAT_OPTION} '"${DESTINATION_VMDK}"' > "${VMDK_OUTPUT}" 2>&1 &
+                                    VMDK_PID=$!
+
+                                    # MONITOR-SCHLEIFE über das VERZEICHNIS (funktioniert besser auf NFS)
+                                    LAST_SIZE_GB="-1"
+                                    while kill -0 ${VMDK_PID} 2>/dev/null; do
+                                        # Wir messen das gesamte VM-Backup-Verzeichnis
+                                        # 'du -s' ist hier die zuverlässigste Methode
+                                        CUR_SIZE_K=$(du -s "${VM_BACKUP_DIR}" | awk '{print $1}')
+                                        CUR_SIZE_GB=$(echo "${CUR_SIZE_K}" | awk '{printf "%.2f", $1/1024/1024}')
+                                        CUR_PCT=$(echo "${CUR_SIZE_GB} ${TOTAL_GB}" | awk '{if ($2>0.1) printf "%.0f", ($1/$2)*100; else print "0"}')
+                                        
+                                        if [[ "${CUR_SIZE_GB}" != "${LAST_SIZE_GB}" ]]; then
+                                            echo -e "$(date +%H:%M:%S): Progress -> ${CUR_SIZE_GB} GB (${CUR_PCT}%) written..." >> "${LOG_OUTPUT}"
+                                            sync
+                                            LAST_SIZE_GB="${CUR_SIZE_GB}"
+                                        fi
+                                        sleep 20
+                                    done
+
+                                    wait ${VMDK_PID}
                                     VMDK_EXIT_CODE=$?
-                                    kill "${TAIL_PID}"
-                                    cat "${VMDK_OUTPUT}" >> "${REDIRECT}"
-                                    echo >> "${REDIRECT}"
-                                    echo
-                                    rm "${VMDK_OUTPUT}"
+                                    
+                                    # End-Zeitstempel und Speed-Berechnung
+                                    CLONE_END_SEC=$(date +%s)
+                                    CLONE_DURATION=$((CLONE_END_SEC - CLONE_START_SEC))
+                                    [[ ${CLONE_DURATION} -lt 1 ]] && CLONE_DURATION=1
+                                    
+                                    # Finale Größe des Verzeichnisses für Speed-Check
+                                    FINAL_SIZE_K=$(du -s "${VM_BACKUP_DIR}" | awk '{print $1}')
+                                    AVG_SPEED=$(echo "${FINAL_SIZE_K} ${CLONE_DURATION}" | awk '{printf "%.1f", ($1/$2)/1024}')
+
+                                    echo -e "$(date +%H:%M:%S): Finished cloning disk. Average Speed: ${AVG_SPEED} MB/s" >> "${LOG_OUTPUT}"
+                                    sync
 
                                     if [[ "${VMDK_EXIT_CODE}" != 0 ]] ; then
-                                        logger "info" "ERROR: [${VM_NAME}] - Fehler beim Backup von \"${SOURCE_VMDK}\""
+                                        echo -e "$(date +%H:%M:%S): ERROR during cloning! Details:" >> "${LOG_OUTPUT}"
+                                        cat "${VMDK_OUTPUT}" >> "${LOG_OUTPUT}"
                                         VM_VMDK_FAILED=1
                                     fi
+                                    
+                                    echo >> "${LOG_OUTPUT}"
+                                    rm -f "${VMDK_OUTPUT}"
                                 fi
                             else
                                 logger "info" "WARNING: A physical RDM \"${SOURCE_VMDK}\" was found for ${VM_NAME}, which will not be backed up"
@@ -1482,7 +1520,8 @@ fi
 				# NEU: Grösse des aktuellen Backups ermitteln und zur Liste hinzufügen
                 if [ -d "${VM_BACKUP_DIR}" ]; then
                     VM_BACKUP_SIZE=$(du -sh "${VM_BACKUP_DIR}" | awk '{print $1}')
-                    NEW_LINE_WITH_NEWLINE=$(printf -- "- %s: %s\n" "${VM_NAME}" "${VM_BACKUP_SIZE}")
+                    # Wir nutzen den AVG_SPEED Wert aus der Klon-Schleife
+                    NEW_LINE_WITH_NEWLINE=$(printf -- "- %s: %s (Avg Speed: %s MB/s)\n" "${VM_NAME}" "${VM_BACKUP_SIZE}" "${AVG_SPEED:-0.0}")
                     VM_REPORT_LIST="${VM_REPORT_LIST}${NEW_LINE_WITH_NEWLINE}"
                 fi				
 				
@@ -1589,7 +1628,8 @@ fi
     # NEU: Schreibe die formatierte VM-Liste ins Log, damit sendmail.py sie parsen kann
     echo "" >> "${LOG_OUTPUT}"
     # Wir verwenden den Header "geklonten VMs", da sendmail.py diesen bereits kennt.
-    echo "--- Zusammenfassung der geklonten VMs ---" >> "${LOG_OUTPUT}"
+    echo "--- Backup-Zusammenfassung (Details) ---" >> "${LOG_OUTPUT}"
+    echo "VM-Name: Größe (Durchschnitts-Geschwindigkeit)" >> "${LOG_OUTPUT}"
     echo -e "${VM_REPORT_LIST}" >> "${LOG_OUTPUT}"
     echo "-----------------------------------------" >> "${LOG_OUTPUT}"
 
