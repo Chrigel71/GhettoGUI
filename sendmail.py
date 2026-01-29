@@ -38,6 +38,7 @@ def html_escape(text):
         except Exception: text = repr(text)
     return (text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
 
+
 def create_summary(log_content):
     """
     Erzeugt die volle HTML-Zusammenfassung (Original V7.3 Logic).
@@ -177,6 +178,7 @@ def create_summary(log_content):
     parts.append("</body></html>")
     return "\n".join(parts), (len(summary["errors"]) > 0 or len(summary["warnings"]) > 0)
 
+
 def build_message(subject, html_body, to_csv, from_addr, display_name, is_important=False):
     # Versuch mit Python Email Lib (falls vorhanden)
     if HAVE_EMAIL:
@@ -274,11 +276,12 @@ def _openssl_fallback(subject, html_body, to_csv, from_addr, display_name, host,
     def run_interactive(cmd_list):
         p = subprocess.Popen(cmd_list, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         try:
+            # Zeilenweiser Versand mit Pause für ESXi 6 Puffer-Management
             for c in commands:
                 p.stdin.write(c.encode('utf-8'))
                 p.stdin.flush()
-                time.sleep(0.1) # WICHTIG fuer nc
-        except IOError: pass # Broken Pipe catch
+                time.sleep(0.2) 
+        except IOError: pass # Catch Broken Pipe
         except Exception: pass
             
         try: p.stdin.close()
