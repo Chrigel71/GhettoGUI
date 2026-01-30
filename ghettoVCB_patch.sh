@@ -7,7 +7,7 @@ export PATH
 # https://github.com/lamw/ghettoVCB
 # http://communities.vmware.com/docs/DOC-8760
 # Patched by AI for enhanced email notifications and robust root check
-# Use for GhettoGUI_V8.7.0  Christian Furrer, 29.01.2026
+# Use for GhettoGUI_V8.7.0  Christian Furrer, 30.01.2026
 # Fixer Pfad O.K
 # Erweitertes email Log
 
@@ -961,7 +961,7 @@ ghettoVCB() {
 
 # --- START: Hinzufügen für detailliertes E-Mail-Log ---
     echo "Job-Konfiguration:" >> "${LOG_OUTPUT}"
-    echo "  - Typ: GhettoVCB Backup" >> "${LOG_OUTPUT}"
+    echo "  - Typ: GhettoVCB Backup V8.7.0" >> "${LOG_OUTPUT}"
     echo "  - Backup-Ziel: ${VM_BACKUP_VOLUME}" >> "${LOG_OUTPUT}"
     echo "  - Rotation: ${VM_BACKUP_ROTATION_COUNT}" >> "${LOG_OUTPUT}"
     echo "  - Disk-Format: ${DISK_BACKUP_FORMAT}" >> "${LOG_OUTPUT}"
@@ -1521,7 +1521,8 @@ fi
                 if [ -d "${VM_BACKUP_DIR}" ]; then
                     VM_BACKUP_SIZE=$(du -sh "${VM_BACKUP_DIR}" | awk '{print $1}')
                     # Wir nutzen den AVG_SPEED Wert aus der Klon-Schleife
-                    NEW_LINE_WITH_NEWLINE=$(printf -- "- %s: %s (Avg Speed: %s MB/s)\n" "${VM_NAME}" "${VM_BACKUP_SIZE}" "${AVG_SPEED:-0.0}")
+                    # Formatierung mit Doppelpunkt für saubere Trennung von Name und Daten
+                    NEW_LINE_WITH_NEWLINE=$(printf -- "- %s: %s (Avg Speed %s MB/s)\n" "${VM_NAME}" "${VM_BACKUP_SIZE}" "${AVG_SPEED:-0.0}")
                     VM_REPORT_LIST="${VM_REPORT_LIST}${NEW_LINE_WITH_NEWLINE}"
                 fi				
 				
