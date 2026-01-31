@@ -157,7 +157,7 @@ def create_summary(log_content):
     status_text = summary["status"].lower()
     status_color = "#28a745" if "ok" in status_text or "erfolgreich" in status_text else "#dc3545"
     
-    parts = ["<html><head><meta charset='utf-8'><style>body{font-family:Arial,sans-serif;font-size:14px; margin:15px;}h2,h3,h4{color:#333} pre{font-family:monospace;background:#f8f8f8;padding:10px;border:1px solid #ddd;border-radius:4px;white-space:pre-wrap;word-wrap:break-word}ul{list-style-type:none;padding-left:0} li{margin-bottom:5px} li ul{margin-top:5px;margin-left:20px;list-style-type:circle}.error-vm{color:#b00020;font-weight:bold} .warn-vm{color:#b06a00;font-weight:bold} .info-vm{color:#00579b;font-weight:bold}</style></head><body>"]
+    parts = ["<html><head><meta charset='utf-8'><style>body{font-family:Arial,sans-serif;font-size:13px}h3,h4{color:#333}pre{background:#f4f4f4;padding:10px;border:1px solid #ddd;white-space:pre-wrap}.err{color:#dc3545;font-weight:bold}.wrn{color:#b06a00;font-weight:bold}</style></head><body>"]   
     parts.append('<h2 style="color: %s;">Backup-Zusammenfassung V8.7.0</h2><hr>' % status_color)
     status_html = '<span style="color: %s; font-weight: bold;">%s</span>' % (status_color, html_escape(summary["status"]))
     parts.append('<p><b>Status:</b> %s</p>' % status_html)
@@ -182,12 +182,28 @@ def create_summary(log_content):
         if clean_line and "VM-Name:" not in clean_line:
             vm_list_to_show.append(clean_line)
     
-    parts.append("<h3>Verarbeitete VMs (%d)</h3>" % len(vm_list_to_show))
-    if vm_list_to_show:
-        # Hier nutzen wir erneut strip(), um ganz sicher zu gehen
-        parts.append("<ul>%s</ul>" % "".join("<li>%s</li>" % html_escape(l.strip()) for l in vm_list_to_show))
-    else:
-        parts.append("<p>Keine.</p>")
+    # --- DIESEN BLOCK ERSETZEN ---
+    parts.append('<h3>Verarbeitete VMs (%d)</h3><ul>' % len(vm_report_lines))
+    parts.append("".join("<li>%s</li>" % html_escape(l.strip()) for l in vm_report_lines) + "</ul>")
+
+    ## Fehler-Ausgabe
+    parts.append('<h3>Warnungen (%d)</h3>' % len(summary["warnings"]))
+    if summary["warnings"]:
+        parts.append('<ul>' + "".join('<li><strong class="wrn">VM: %s</strong>: %s</li>' % (html_escape(v), html_escape(m)) for v, m in summary["warnings"]) + '</ul>')
+    else: parts.append('<p>Keine.</p>')
+
+    parts.append('<h3>Fehler (%d)</h3>' % len(summary["errors"]))
+    if summary["errors"]:
+        parts.append('<ul>' + "".join('<li><strong class="err">VM: %s</strong>: %s</li>' % (html_escape(v), html_escape(m)) for v, m in summary["errors"]) + '</ul>')
+    else: parts.append('<p>Keine.</p>')
+    
+    if summary["config"]: parts.append("<hr><h4>Konfiguration:</h4><ul>%s</ul>" % "".join("<li>%s</li>" % html_escape(i) for i in summary["config"]))
+    if summary["storage_after"]: parts.append('<h4>Speicherplatz (Nachher):</h4><pre>%s</pre>' % "\n".join(html_escape(x) for x in summary["storage_after"]))
+    if summary["directory_listing"]: parts.append('<hr><h3>Dateien:</h3><pre>%s</pre>' % "\n".join(html_escape(x) for x in summary["directory_listing"]))
+    parts.append("</body></html>")
+    
+    return "\n".join(parts), (len(summary["errors"]) > 0 or len(summary["warnings"]) > 0)
+    # --- ENDE DES ERSETZUNGS-BLOCKS ---
 
     # Warnungen und Fehler
     parts.append("<h3>Warnungen (%d)</h3>" % len(summary["warnings"]))
@@ -209,27 +225,30 @@ def create_summary(log_content):
     parts.append("</body></html>")
     return "\n".join(parts), (len(summary["errors"]) > 0 or len(summary["warnings"]) > 0)
 
-
 def build_message(subject, html_body, to_csv, from_addr, display_name, is_important=False):
-    if HAVE_EMAIL:
-        try:
-            msg = MIMEMultipart()
-            dn_header = Header(display_name, 'utf-8').encode()
-            msg['From'] = formataddr((dn_header, from_addr))
-            msg['To'] = to_csv
-            msg['Subject'] = Header(subject, 'utf-8')
-            msg['Date'] = formatdate(localtime=True)
-            if is_important: msg['Importance'] = 'high'; msg['X-Priority'] = '1'; msg['X-MSMail-Priority'] = 'High'
-            msg.attach(MIMEText(html_body, 'html', 'utf-8'))
-            return msg.as_string()
-        except: pass
-
-    # Fallback
+    # Optimierter Header-Bau für Outlook-Vorschau
     date_hdr = time.strftime('%a, %d %b %Y %H:%M:%S +0000', time.gmtime())
-    headers = ['From: "%s" <%s>' % (display_name, from_addr), 'To: %s' % to_csv, 'Subject: %s' % subject, 'Date: %s' % date_hdr]
-    if is_important: headers.extend(['Importance: high', 'X-Priority: 1'])
-    headers.extend(['MIME-Version: 1.0', 'Content-Type: text/html; charset=utf-8', 'Content-Transfer-Encoding: 8bit', '', html_body])
-    return "\r\n".join(headers)
+    
+    # Sicherstellen, dass der Anzeigename korrekt zitiert ist
+    clean_display_name = display_name.replace('"', '')
+    full_from = '"%s" <%s>' % (clean_display_name, from_addr)
+    
+    headers = [
+        'From: %s' % full_from,
+        'To: %s' % to_csv,
+        'Subject: %s' % subject,
+        'Date: %s' % date_hdr,
+        'MIME-Version: 1.0',
+        'Content-Type: text/html; charset=utf-8',
+        'Content-Transfer-Encoding: 8bit'
+    ]
+    
+    if is_important:
+        headers.append('Importance: high')
+        headers.append('X-Priority: 1')
+        
+    # Trennung zwischen Header und Body durch GENAU eine Leerzeile
+    return "\r\n".join(headers) + "\r\n\r\n" + html_body
 
 def _split_recipients(to_str):
     if not to_str: return []
