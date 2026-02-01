@@ -958,11 +958,23 @@ ghettoVCB() {
     VM_FAILED=0
     VMDK_FAILED=0
 	VM_REPORT_LIST=""
+	
+	# --- Sichere Ermittlung der Quell-IP ---
+    # Wir leiten Fehler von esxcli nach /dev/null um, damit das Skript nicht stoppt
+    MGMT_IP=$(esxcli network ip interface ipv4 get 2>/dev/null | grep vmk0 | awk '{print $2}')
+    HOST_NAME=$(hostname)
+    
+    # Falls MGMT_IP leer ist (z.B. Interface heißt nicht vmk0), nur Hostname nutzen
+    if [ -z "${MGMT_IP}" ]; then
+        SOURCE_DISPLAY="${HOST_NAME}"
+    else
+        SOURCE_DISPLAY="${MGMT_IP} (${HOST_NAME})"
+    fi
 
-# --- START: Hinzufügen für detailliertes E-Mail-Log ---
+    # Log-Ausgabe (Alle anderen Zeilen bleiben erhalten)
     echo "Job-Konfiguration:" >> "${LOG_OUTPUT}"
     echo "  - Typ: GhettoVCB Backup V8.7.1" >> "${LOG_OUTPUT}"
-	echo "  - Quell-Host: $(hostname)" >> "${LOG_OUTPUT}"
+    echo "  - Quell-Host: ${SOURCE_DISPLAY}" >> "${LOG_OUTPUT}"
     echo "  - Backup-Ziel: ${VM_BACKUP_VOLUME}" >> "${LOG_OUTPUT}"
     echo "  - Rotation: ${VM_BACKUP_ROTATION_COUNT}" >> "${LOG_OUTPUT}"
     echo "  - Disk-Format: ${DISK_BACKUP_FORMAT}" >> "${LOG_OUTPUT}"
