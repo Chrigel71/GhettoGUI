@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# GhettoVCB-GUI Sendmail (ESXi 6.0 - 8.0 Compatible)
-# V8.7.2 - Fix: Precise Size Calculation
+# GhettoVCB-GUI 8.7.0 Sendmail (ESXi 6.0 - 8.0 Compatible)
+# V9 - Fix: Precise Size Calculation
+# Patch: Hardened OpenSSL/NC fallback for ESXi 6 email-log sending (keeps ESXi 8 behavior).
 #
 # Features:
 # - Full HTML Summary (Parsing of GhettoVCB Logs)
@@ -44,19 +45,23 @@ def create_summary(log_content):
     """
     Erzeugt die HTML-Zusammenfassung mit korrekter Größenberechnung.
     """
+    # Fix: Variable für Tail-Log Suche definieren
+    all_lines = log_content.splitlines() 
+    
     summary = {
         "status": "Unbekannt", "duration": "N/A", "start_time": "N/A", "end_time": "N/A",
         "final_size": "N/A", "avg_speed": "N/A",
         "vms_processed": [], "vm_report_lines": [], "errors": [], "warnings": [], "infos": [],
-        "config": [], "storage_before": [], "storage_after": [], "directory_listing": [], "detailed_log": []
+        "config": [], "storage_before": [], "storage_after": [], "directory_listing": [], "detailed_log": [],
+        "source_host": "N/A", "target_host": "N/A", "target_datastore": "N/A"
     }
     in_listing, in_storage_before, in_storage_after, in_config, in_detailed = (False, False, False, False, False)
     current_vm = "Allgemein"
     
     in_vm_sum = False
     vm_report_lines = []
-
-    for line in log_content.splitlines():
+    
+    for line in all_lines:
         s = line.strip(); s_lower = s.lower()
         
         # Sektions-Erkennung für die Zusammenfassung (Details)
@@ -66,10 +71,7 @@ def create_summary(log_content):
             in_vm_sum = False; continue
 
         if in_vm_sum:
-            # Header-Zeile überspringen
             if "VM-Name:" in s and "Groesse" in s: continue
-            
-            # Einträge sammeln und säubern
             if s.startswith('-') or '- ' in s:
                 for entry in s.split('- '):
                     rep = entry.strip()
@@ -79,20 +81,24 @@ def create_summary(log_content):
                 vm_report_lines.append(s)
             continue
 
-        # Allgemeine Status-Werte
-        if "final status:" in s_lower: summary["status"] = s[s_lower.find("final status:") + len("final status:"):].replace("#", "").strip(); continue
-        
-        # WICHTIG: Wir ignorieren "final size:" aus dem Log, da dieser Wert oft falsch ist.
-        # Er wird unten manuell aus den vm_report_lines berechnet.
+        if "final status:" in s_lower: 
+            summary["status"] = s[s_lower.find("final status:") + len("final status:"):].replace("#", "").strip(); continue
 
         if "average speed:" in s_lower:
-            summary["avg_speed"] = s[s_lower.find("average speed:") + len("average speed:"):].strip()
-            continue
+            summary["avg_speed"] = s[s_lower.find("average speed:") + len("average speed:"):].strip(); continue
             
         if "initiate backup for" in s_lower:
             vm = s[s_lower.find("initiate backup for") + len("initiate backup for"):].strip(); current_vm = vm
             if vm and vm not in summary["vms_processed"]: summary["vms_processed"].append(vm)
             continue
+
+        # Zusätzliche ESXi/GhettoVCB Fehlerzeilen ohne "error:"-Prefix
+        if ("failed to clone disk" in s_lower) or ("disklib_check()" in s_lower) or ("disklib_check" in s_lower and "failed" in s_lower):
+            vm_context = current_vm if current_vm else "Allgemein"
+            summary["errors"].append((vm_context, s)); continue
+        if ("the file already exists" in s_lower) and ("clone" in s_lower or "vmdk" in s_lower):
+            vm_context = current_vm if current_vm else "Allgemein"
+            summary["errors"].append((vm_context, s)); continue
 
         # Logging / Fehler / Warnungen
         if "warn:" in s_lower and "smtplib not available" in s_lower:
@@ -109,9 +115,30 @@ def create_summary(log_content):
             if msg.startswith("[") and "]" in msg: vm_context = msg.split(']')[0][1:]; msg = msg.split('] - ', 1)[-1]
             summary["errors"].append((vm_context, msg)); continue
 
+                # --- Direkte Replikation: Quell/Ziel Host & Datastore erkennen ---
+        if in_config:
+            # Logformat: "- Quell-Host: 192.168...."
+            m = re.match(r'^\-+\s*Quell-Host:\s*(.+)$', s, re.IGNORECASE)
+            if m:
+                summary["source_host"] = m.group(1).strip()
+                continue
+
+            m = re.match(r'^\-+\s*Ziel-Host:\s*(.+)$', s, re.IGNORECASE)
+            if m:
+                summary["target_host"] = m.group(1).strip()
+                continue
+
+            m = re.match(r'^\-+\s*Ziel-Datastore:\s*(.+)$', s, re.IGNORECASE)
+            if m:
+                summary["target_datastore"] = m.group(1).strip()
+                continue
+
+
         # Zeitstempel & Blöcke
         if s.startswith("Startzeit:") and summary["start_time"] == "N/A": summary["start_time"] = s.split(":", 1)[-1].strip(); continue
         if s.startswith("Endzeit:"): summary["end_time"] = s.split(":", 1)[-1].strip(); continue
+        if "- Quell-Host:" in s:
+            summary["source_host"] = s.split(":", 1)[-1].strip()
         if s.startswith("Job-Konfiguration:"): in_config = True; continue
         if s.startswith("Speicherplatz (Vorher):"): in_config = False; in_storage_before = True; continue
         if s.startswith("Speicherplatz (Nachher):"): in_storage_before = False; in_storage_after = True; continue
@@ -126,23 +153,25 @@ def create_summary(log_content):
         if in_listing: summary["directory_listing"].append(line); continue
         if in_detailed: summary["detailed_log"].append(line); continue
 
-    # Dauer berechnen
+    # --- Dauer und Gesamt-Sekunden berechnen ---
+    total_seconds = 0
     if summary["start_time"] != "N/A" and summary["end_time"] != "N/A":
         try:
             t1 = datetime.strptime(summary["start_time"].strip(), "%Y-%m-%d %H:%M:%S")
             t2 = datetime.strptime(summary["end_time"].strip(), "%Y-%m-%d %H:%M:%S")
-            delta = t2 - t1; total_seconds = delta.total_seconds(); minutes, seconds = divmod(total_seconds, 60)
+            delta = t2 - t1
+            total_seconds = delta.total_seconds()
+            minutes, seconds = divmod(total_seconds, 60)
             summary["duration"] = "%d Minuten, %d Sekunden" % (minutes, seconds)
-        except: summary["duration"] = "Konnte nicht berechnet werden"
+        except:
+            summary["duration"] = "Konnte nicht berechnet werden"
 
-    # EIGENE GRÖSSENBERECHNUNG (Nur aus den verarbeiteten VMs)
+    # --- EIGENE GRÖSSENBERECHNUNG ---
+    total_gb = 0.0
     if vm_report_lines:
-        total_gb = 0.0
         for _rep in vm_report_lines:
-            # Suche nach XX.X G oder XX.X M nach einem Doppelpunkt oder in Klammern
             m = re.search(r':\s*([0-9\.]+)\s*([GM])B?', _rep, re.IGNORECASE)
             if not m: m = re.search(r'\(([0-9\.]+)\s*([GM]B?)\)', _rep, re.IGNORECASE)
-            
             if m:
                 try:
                     val = float(m.group(1).replace(',', '.'))
@@ -150,60 +179,109 @@ def create_summary(log_content):
                     gb = val/1024.0 if unit.startswith('M') else val
                     total_gb += gb
                 except: pass
-        if total_gb > 0: 
+        
+        if total_gb > 0:
             summary['final_size'] = "{:.1f} GB".format(total_gb)
+            # Korrekter Durchschnitts-Speed: (Gesamt GB * 1024) / Gesamtsekunden
+            if total_seconds > 0:
+                calc_speed = (total_gb * 1024) / total_seconds
+                summary["avg_speed"] = "{:.1f} MB/s".format(calc_speed)
 
-    # HTML Zusammenstellung
-    status_text = summary["status"].lower()
-    status_color = "#28a745" if "ok" in status_text or "erfolgreich" in status_text else "#dc3545"
-    
+    # --- Automatisches Tail-Log bei Warnungen oder Fehlern ---
+    status_upper = summary["status"].upper()
+    if "ERROR" in status_upper or "WARNING" in status_upper:
+        try:
+            tail_lines = []
+            for line in reversed(all_lines):
+                ln = line.strip()
+                if ln: tail_lines.append(ln)
+                if len(tail_lines) >= 5: break
+            tail_lines.reverse()
+            target_list = summary["errors"] if "ERROR" in status_upper else summary["warnings"]
+            for tl in tail_lines:
+                target_list.append(("Letzte Logzeilen", tl))
+        except: pass
+
+    # --- HTML Zusammenstellung (Bereinigt) ---
+    if "ERROR" in status_upper:
+        status_color = "#dc3545"
+    elif "WARNING" in status_upper:
+        status_color = "#b06a00"
+    elif "OK" in status_upper or "ERFOLGREICH" in status_upper:
+        status_color = "#28a745"
+    else:
+        status_color = "#333"
+
     parts = ["<html><head><meta charset='utf-8'><style>body{font-family:Arial,sans-serif;font-size:13px}h3,h4{color:#333}pre{background:#f4f4f4;padding:10px;border:1px solid #ddd;white-space:pre-wrap}.err{color:#dc3545;font-weight:bold}.wrn{color:#b06a00;font-weight:bold}</style></head><body>"]   
-    parts.append('<h2 style="color: %s;">Backup-Zusammenfassung V8.7.0</h2><hr>' % status_color)
-    status_html = '<span style="color: %s; font-weight: bold;">%s</span>' % (status_color, html_escape(summary["status"]))
-    parts.append('<p><b>Status:</b> %s</p>' % status_html)
+    parts.append('<h2 style="color: %s;">Backup-Zusammenfassung v9</h2><hr>' % status_color)
+    parts.append('<p><b>Status:</b> <span style="color: %s; font-weight: bold;">%s</span></p>' % (status_color, html_escape(summary["status"])))
     parts.append("<h4>Job-Details:</h4><ul>")
     parts.append("<li><b>Startzeit:</b> %s</li>" % html_escape(summary["start_time"]))
     parts.append("<li><b>Endzeit:</b> %s</li>" % (html_escape(summary["end_time"]) if summary["end_time"] != "N/A" else "<em>Job nicht beendet</em>"))
     parts.append("<li><b>Dauer:</b> %s</li>" % html_escape(summary["duration"]))
     if summary["final_size"] != "N/A": parts.append("<li><b>Groesse:</b> %s</li>" % html_escape(summary["final_size"]))
-    if summary.get("avg_speed") and summary["avg_speed"] != "N/A":
+    if summary.get("avg_speed") and summary["avg_speed"] != "N/A": 
         parts.append("<li><b>Durchschnitts-Speed:</b> %s</li>" % html_escape(summary["avg_speed"]))
     parts.append("</ul><hr>")
 
-    # VERARBEITETE VMs: Liste säubern und literale \n entfernen
-    vm_list_to_show = []
-    source_lines = vm_report_lines if vm_report_lines else summary["vms_processed"]
-    
-    for line in source_lines:
-        # 1. Entferne literale "\n" Zeichenketten aus dem Text
-        # 2. .strip() entfernt echte Zeilenumbrüche und Leerzeichen
-        clean_line = line.replace('\\n', '').strip()
-        
-        if clean_line and "VM-Name:" not in clean_line:
-            vm_list_to_show.append(clean_line)
-    
-    # --- DIESEN BLOCK ERSETZEN ---
-    parts.append('<h3>Verarbeitete VMs (%d)</h3><ul>' % len(vm_report_lines))
-    parts.append("".join("<li>%s</li>" % html_escape(l.strip()) for l in vm_report_lines) + "</ul>")
+    parts.append('<h3>Verarbeitete VMs (%d)</h3>' % len(vm_report_lines))
+    if vm_report_lines:
+        parts.append("<pre>")
+        parts.append("\n".join(html_escape(l.strip().replace('\\n', '')) for l in vm_report_lines))
+        parts.append("</pre>")
+    else:
+        parts.append("<p>Keine.</p>")
 
-    ## Fehler-Ausgabe
-    parts.append('<h3>Warnungen (%d)</h3>' % len(summary["warnings"]))
     if summary["warnings"]:
-        parts.append('<ul>' + "".join('<li><strong class="wrn">VM: %s</strong>: %s</li>' % (html_escape(v), html_escape(m)) for v, m in summary["warnings"]) + '</ul>')
-    else: parts.append('<p>Keine.</p>')
+        parts.append('<h3>Warnungen (%d)</h3><ul>' % len(summary["warnings"]))
+        parts.append("".join('<li><strong class="wrn">VM: %s</strong>: %s</li>' % (html_escape(v), html_escape(m)) for v, m in summary["warnings"]) + '</ul>')
 
-    parts.append('<h3>Fehler (%d)</h3>' % len(summary["errors"]))
     if summary["errors"]:
-        parts.append('<ul>' + "".join('<li><strong class="err">VM: %s</strong>: %s</li>' % (html_escape(v), html_escape(m)) for v, m in summary["errors"]) + '</ul>')
-    else: parts.append('<p>Keine.</p>')
+        parts.append('<h3>Fehler (%d)</h3><ul>' % len(summary["errors"]))
+        parts.append("".join('<li><strong class="err">VM: %s</strong>: %s</li>' % (html_escape(v), html_escape(m)) for v, m in summary["errors"]) + '</ul>')
     
-    if summary["config"]: parts.append("<hr><h4>Konfiguration:</h4><ul>%s</ul>" % "".join("<li>%s</li>" % html_escape(i) for i in summary["config"]))
+    if summary["config"]:
+        parts.append("<hr><h4>Konfiguration:</h4><ul>")
+        if summary.get("source_host", "N/A") != "N/A":
+            parts.append("<li><b>Quell-Host:</b> %s</li>" % html_escape(summary["source_host"]))
+        if summary.get("target_host", "N/A") != "N/A":
+            parts.append("<li><b>Ziel-Host:</b> %s</li>" % html_escape(summary["target_host"]))
+        if summary.get("target_datastore", "N/A") != "N/A":
+            parts.append("<li><b>Ziel-Datastore:</b> %s</li>" % html_escape(summary["target_datastore"]))
+        parts.append("".join("<li>%s</li>" % html_escape(i) for i in summary["config"]))
+        parts.append("</ul>")
+    
+    if summary["storage_after"]:
+        parts.append('<h4>Speicherplatz (Nachher):</h4><pre>%s</pre>' % "\n".join(html_escape(x) for x in summary["storage_after"]))
+    
+    if summary["directory_listing"]:
+        parts.append('<hr><h3>Dateien:</h3><pre>%s</pre>' % "\n".join(html_escape(x) for x in summary["directory_listing"]))
+    
+    parts.append("</body></html>")
+    return "\n".join(parts), (len(summary["errors"]) > 0 or len(summary["warnings"]) > 0)
+    
+    # --------------------------------------------
+        # Konfiguration
+    if summary["config"]:
+        parts.append("<hr><h4>Konfiguration:</h4><ul>")
+
+        # Quell/Ziel Daten (direkte Replikation)
+        if summary.get("source_host", "N/A") != "N/A":
+            parts.append("<li><b>Quell-Host:</b> %s</li>" % html_escape(summary["source_host"]))
+        if summary.get("target_host", "N/A") != "N/A":
+            parts.append("<li><b>Ziel-Host:</b> %s</li>" % html_escape(summary["target_host"]))
+        if summary.get("target_datastore", "N/A") != "N/A":
+            parts.append("<li><b>Ziel-Datastore:</b> %s</li>" % html_escape(summary["target_datastore"]))
+
+        # Restliche Konfig-Zeilen unverändert
+        parts.append("".join("<li>%s</li>" % html_escape(i) for i in summary["config"]))
+        parts.append("</ul>")
+    
     if summary["storage_after"]: parts.append('<h4>Speicherplatz (Nachher):</h4><pre>%s</pre>' % "\n".join(html_escape(x) for x in summary["storage_after"]))
     if summary["directory_listing"]: parts.append('<hr><h3>Dateien:</h3><pre>%s</pre>' % "\n".join(html_escape(x) for x in summary["directory_listing"]))
     parts.append("</body></html>")
     
     return "\n".join(parts), (len(summary["errors"]) > 0 or len(summary["warnings"]) > 0)
-    # --- ENDE DES ERSETZUNGS-BLOCKS ---
 
     # Warnungen und Fehler
     parts.append("<h3>Warnungen (%d)</h3>" % len(summary["warnings"]))
@@ -269,43 +347,242 @@ def _smtp_try_send(subject, html_body, to_csv, from_addr, display_name, host, po
         return True
     except: return False
 
+
+def _smtp_plain_socket_send(subject, html_body, to_csv, from_addr, display_name, host, port, user, pwd, is_important=False, timeout=30):
+    """
+    Plain SMTP over TCP using Python sockets (reliable on ESXi 6 for Port 25).
+    Reads server replies per step, so we only report success if DATA is accepted (250 after <CRLF>.<CRLF>).
+    """
+    import socket as _sock
+
+    def _recvline(sock):
+        buf = b""
+        while True:
+            ch = sock.recv(1)
+            if not ch:
+                break
+            buf += ch
+            if buf.endswith(b"\n"):
+                break
+        return buf
+
+    def _recv_reply(sock):
+        lines = []
+        while True:
+            line = _recvline(sock)
+            if not line:
+                break
+            lines.append(line)
+            if len(line) >= 4 and line[3:4] == b" ":
+                break
+        return b"".join(lines)
+
+    def _send(sock, s):
+        if isinstance(s, str):
+            s = s.encode("utf-8")
+        sock.sendall(s)
+
+    def _code(reply_bytes):
+        try:
+            return int(reply_bytes[:3])
+        except Exception:
+            return -1
+
+    recipients = _split_recipients(to_csv)
+    if not recipients:
+        raise RuntimeError("No recipients.")
+
+    raw = build_message(subject, html_body, to_csv, from_addr, display_name, is_important)
+
+    if isinstance(raw, bytes):
+        try:
+            raw = raw.decode("utf-8")
+        except Exception:
+            raw = str(raw)
+
+    # Normalize + dot-stuff + hard wrap long lines (<1000 chars SMTP)
+    raw = raw.replace("\r\n", "\n").replace("\r", "\n")
+    stuffed_lines = []
+    for ln in raw.split("\n"):
+        while len(ln) > 900:
+            stuffed_lines.append(ln[:900])
+            ln = ln[900:]
+        if ln.startswith("."):
+            ln = "." + ln
+        stuffed_lines.append(ln)
+    data_block = "\r\n".join(stuffed_lines) + "\r\n"
+
+    s = _sock.socket(_sock.AF_INET, _sock.SOCK_STREAM)
+    s.settimeout(timeout)
+    s.connect((host, int(port)))
+
+    rep = _recv_reply(s)
+    if _code(rep) != 220:
+        raise RuntimeError("SMTP greeting failed: %r" % rep)
+
+    ehlo = (socket.gethostname().split(".")[0] or "esxi")
+    _send(s, "EHLO %s\r\n" % ehlo)
+    rep = _recv_reply(s)
+    if _code(rep) != 250:
+        _send(s, "HELO %s\r\n" % ehlo)
+        rep = _recv_reply(s)
+        if _code(rep) != 250:
+            raise RuntimeError("EHLO/HELO failed: %r" % rep)
+
+    if user and pwd:
+        try:
+            import base64 as _b64
+            _send(s, "AUTH LOGIN\r\n")
+            rep = _recv_reply(s)
+            if _code(rep) == 334:
+                _send(s, _b64.b64encode(user.encode("utf-8")).decode("ascii") + "\r\n")
+                rep = _recv_reply(s)
+                if _code(rep) != 334:
+                    raise RuntimeError("AUTH LOGIN user rejected: %r" % rep)
+                _send(s, _b64.b64encode(pwd.encode("utf-8")).decode("ascii") + "\r\n")
+                rep = _recv_reply(s)
+                if _code(rep) not in (235, 503):
+                    raise RuntimeError("AUTH LOGIN failed: %r" % rep)
+        except Exception:
+            pass
+
+    _send(s, "MAIL FROM:<%s>\r\n" % from_addr)
+    rep = _recv_reply(s)
+    if _code(rep) not in (250, 251):
+        raise RuntimeError("MAIL FROM rejected: %r" % rep)
+
+    for r in recipients:
+        _send(s, "RCPT TO:<%s>\r\n" % r)
+        rep = _recv_reply(s)
+        if _code(rep) not in (250, 251):
+            raise RuntimeError("RCPT TO rejected for %s: %r" % (r, rep))
+
+    _send(s, "DATA\r\n")
+    rep = _recv_reply(s)
+    if _code(rep) != 354:
+        raise RuntimeError("DATA not accepted: %r" % rep)
+
+    _send(s, data_block)
+    _send(s, ".\r\n")
+    rep = _recv_reply(s)
+    if _code(rep) != 250:
+        raise RuntimeError("Message not accepted: %r" % rep)
+
+    try:
+        _send(s, "QUIT\r\n")
+        _recv_reply(s)
+    except Exception:
+        pass
+    try:
+        s.close()
+    except Exception:
+        pass
+
+    sys.stdout.write("INFO: Email successfully sent (socket25)\n")
+    return True
+
 def _openssl_fallback(subject, html_body, to_csv, from_addr, display_name, host, port, user, pwd, tls_mode, auth_mode, is_important=False):
     recipients = _split_recipients(to_csv)
+    if not recipients: raise RuntimeError("No recipients.")
+    
     raw_email_content = build_message(subject, html_body, to_csv, from_addr, display_name, is_important)
     
     try: import base64 as b64mod
     except: b64mod = None
     def b64(s):
-        return b64mod.b64encode(s.encode('utf-8')).decode('ascii') if b64mod else s
+        if b64mod is None: raise RuntimeError("No base64 available.")
+        if not isinstance(s, _basestr): s = str(s)
+        out = b64mod.b64encode(s.encode('utf-8'))
+        try: return out.decode('ascii')
+        except: return out
 
-    ehlo = socket.gethostname().split('.')[0] or 'esxi'
+    ehlo = (socket.gethostname().split('.')[0] or 'esxi')
     commands = ["EHLO %s\r\n" % ehlo]
+    
     if user and pwd:
-        commands.extend(["AUTH LOGIN\r\n", "%s\r\n" % b64(user), "%s\r\n" % b64(pwd)])
+        commands.append("AUTH LOGIN\r\n")
+        commands.append("%s\r\n" % b64(user))
+        commands.append("%s\r\n" % b64(pwd))
+    
     commands.append("MAIL FROM:<%s>\r\n" % from_addr)
     for r in recipients: commands.append("RCPT TO:<%s>\r\n" % r)
     commands.append("DATA\r\n")
+    
+    if isinstance(raw_email_content, bytes):
+        try: raw_email_content = raw_email_content.decode('utf-8')
+        except: raw_email_content = str(raw_email_content)
+    
     normalized = raw_email_content.replace('\r\n', '\n').replace('\r', '\n')
-    commands.append(normalized.replace('\n', '\r\n') + "\r\n.\r\nQUIT\r\n")
+    commands.append(normalized.replace('\n', '\r\n') + "\r\n.\r\n")
+    commands.append("QUIT\r\n")
 
-    cmd = ['/bin/nc', host, str(port)] if (port == 25 and tls_mode != 'ssl') else \
-          (['/bin/openssl', 's_client', '-quiet', '-crlf', '-connect', '%s:%s' % (host, port)] if tls_mode == 'ssl' else \
-           ['/bin/openssl', 's_client', '-quiet', '-crlf', '-starttls', 'smtp', '-connect', '%s:%s' % (host, port)])
+    def run_interactive(cmd_list):
+        p = subprocess.Popen(cmd_list, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            # Zeilenweiser Versand mit Pause für ESXi 6 Puffer-Management
+            for c in commands:
+                p.stdin.write(c.encode('utf-8'))
+                p.stdin.flush()
+                time.sleep(0.2) 
+        except IOError: pass # Catch Broken Pipe
+        except Exception: pass
+            
+        try: p.stdin.close()
+        except: pass
+        out = p.stdout.read()
+        err = p.stderr.read()
+        p.wait()
+        return out, err
 
-    p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    for c in commands:
-        p.stdin.write(c.encode('utf-8')); p.stdin.flush(); time.sleep(0.2)
-    p.stdin.close(); out = str(p.stdout.read()); p.wait()
-    if "250" in out or "queued" in out.lower() or "ok" in out.lower():
-         sys.stdout.write("INFO: Email successfully sent (fallback)\n")
-         return True
+    # --- ESXi 6 LOGIC (PORT 25 RELIABLE SOCKET FALLBACK) ---
+    use_nc = False
+    if port == 25 and tls_mode != 'ssl':
+        use_nc = True
+
+    if use_nc:
+        sys.stdout.write("INFO: Port 25 on ESXi 6 -> using reliable socket fallback...\n")
+        _smtp_plain_socket_send(subject, html_body, to_csv, from_addr, display_name, host, port, user, pwd, is_important=is_important)
+        return True
+
+    # For TLS/587 or implicit SSL, keep OpenSSL s_client path
+    if tls_mode == 'ssl':
+        cmd = ['/bin/openssl', 's_client', '-quiet', '-crlf', '-connect', '%s:%s' % (host, port)]
+    else:
+        cmd = ['/bin/openssl', 's_client', '-quiet', '-crlf', '-starttls', 'smtp', '-connect', '%s:%s' % (host, port)]
+
+    out, err = run_interactive(cmd)
+    out_str = str(out)
+
+    # Only declare success if we see a post-DATA accept (queued/2.0.0) or a clear OK.
+    if ("queued" in out_str.lower()) or ("250 2.0.0" in out_str) or ("message accepted" in out_str.lower()):
+        sys.stdout.write("INFO: Email successfully sent (fallback)\n")
+        return True
+
+    # Retry with plain socket if OpenSSL failed and port is 25
+    if ("connect:errno" in str(err)) or ("handshake failure" in str(err)) or ("Broken pipe" in str(err)):
+        sys.stderr.write("WARN: OpenSSL failed. Retrying with socket fallback...\n")
+        try:
+            _smtp_plain_socket_send(subject, html_body, to_csv, from_addr, display_name, host, 25, user, pwd, is_important=is_important)
+            return True
+        except Exception:
+            pass
+
+    sys.stderr.write("DEBUG OUT: %s\n" % str(out))
+    sys.stderr.write("DEBUG ERR: %s\n" % str(err))
     raise RuntimeError("SMTP conversation failed")
+    return True
+
 
 def send_email(subject, body, to_addr, from_addr, display_name, smtp_server, smtp_port_str, user, password, tls_mode, auth_mode, openssl_fallback=True, is_important=False):
-    smtp_port = int(smtp_port_str)
+    try: smtp_port = int(smtp_port_str)
+    except: sys.stderr.write("ERROR: Invalid port\n"); return
+    
     if _smtp_try_send(subject, body, to_addr, from_addr, display_name, smtp_server, smtp_port, user, password, tls_mode, auth_mode, is_important): return
     if openssl_fallback:
-        _openssl_fallback(subject, body, to_addr, from_addr, display_name, smtp_server, smtp_port, user, password, tls_mode, auth_mode, is_important)
+        try: _openssl_fallback(subject, body, to_addr, from_addr, display_name, smtp_server, smtp_port, user, password, tls_mode, auth_mode, is_important); return
+        except Exception as e: sys.stderr.write("ERROR: Fallback failed: %s\n" % str(e))
+    sys.stderr.write("ERROR: Failed to send email\n")
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -318,12 +595,20 @@ if __name__ == '__main__':
     parser.add_argument('-m', dest='message_file', required=True)
     parser.add_argument('-N', dest='display_name', default=DEFAULT_DISPLAY_NAME)
     parser.add_argument('recipients', nargs='+')
+    parser.add_argument('--tls', default='auto')
+    parser.add_argument('--auth', default='auto')
+    parser.add_argument('--no-openssl-fallback', action='store_true')
+
     args = parser.parse_args()
+    recipients_str = ",".join(args.recipients)
 
     try:
         with open(args.message_file, 'r') as f: log_content = f.read()
-    except: log_content = "Log file error."
+    except: log_content = "Log file content read error."
 
     email_body, is_important = create_summary(log_content)
-    send_email(args.subject, email_body, ",".join(args.recipients), args.sender, args.display_name,
-               args.server, args.port, args.username, args.password, 'auto', 'auto', True, is_important)
+    openssl_fb = (not args.no_openssl_fallback)
+    
+    send_email(args.subject, email_body, recipients_str, args.sender, args.display_name,
+               args.server, args.port, args.username, args.password,
+               tls_mode=args.tls, auth_mode=args.auth, openssl_fallback=openssl_fb, is_important=is_important)

@@ -7,7 +7,7 @@ export PATH
 # https://github.com/lamw/ghettoVCB
 # http://communities.vmware.com/docs/DOC-8760
 # Patched by AI for enhanced email notifications and robust root check
-# Use for GhettoGUI_V8.7.0  Christian Furrer, 30.01.2026
+# Use for GhettoGUI_V8.7.1  Christian Furrer, 31.01.2026
 # Fixer Pfad O.K
 # Erweitertes email Log
 
@@ -961,7 +961,8 @@ ghettoVCB() {
 
 # --- START: Hinzufügen für detailliertes E-Mail-Log ---
     echo "Job-Konfiguration:" >> "${LOG_OUTPUT}"
-    echo "  - Typ: GhettoVCB Backup V8.7.0" >> "${LOG_OUTPUT}"
+    echo "  - Typ: GhettoVCB Backup V8.7.1" >> "${LOG_OUTPUT}"
+	echo "  - Quell-Host: $(hostname)" >> "${LOG_OUTPUT}"
     echo "  - Backup-Ziel: ${VM_BACKUP_VOLUME}" >> "${LOG_OUTPUT}"
     echo "  - Rotation: ${VM_BACKUP_ROTATION_COUNT}" >> "${LOG_OUTPUT}"
     echo "  - Disk-Format: ${DISK_BACKUP_FORMAT}" >> "${LOG_OUTPUT}"
