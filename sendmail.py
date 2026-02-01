@@ -227,19 +227,50 @@ def create_summary(log_content):
     parts.append('<h3>Verarbeitete VMs (%d)</h3>' % len(vm_report_lines))
     if vm_report_lines:
         parts.append("<pre>")
-        parts.append("\n".join(html_escape(l.strip().replace('\\n', '')) for l in vm_report_lines))
+        # Ausrichtung: VM-Name und Größe mit "Tab"-Optik (monospace + Padding)
+        cleaned = [l.strip().replace('\\n', '') for l in vm_report_lines]
+        name_width = 0
+        for _l in cleaned:
+            if ':' in _l:
+                name = _l.split(':', 1)[0] + ':'
+                if len(name) > name_width:
+                    name_width = len(name)
+        name_width = max(name_width + 2, 18)  # Mindestbreite, damit es auch bei kurzen Namen gut aussieht
+
+        formatted = []
+        for _l in cleaned:
+            if ':' in _l:
+                left, right = _l.split(':', 1)
+                left = (left + ':').ljust(name_width)
+                formatted.append(left + right.strip())
+            else:
+                formatted.append(_l)
+
+        parts.append("\n".join(html_escape(x) for x in formatted))
         parts.append("</pre>")
     else:
         parts.append("<p>Keine.</p>")
 
+        # Warnungen
+    parts.append('<h3>Warnungen (%d)</h3>' % len(summary["warnings"]))
     if summary["warnings"]:
-        parts.append('<h3>Warnungen (%d)</h3><ul>' % len(summary["warnings"]))
-        parts.append("".join('<li><strong class="wrn">VM: %s</strong>: %s</li>' % (html_escape(v), html_escape(m)) for v, m in summary["warnings"]) + '</ul>')
+        parts.append('<ul>' + "".join(
+            '<li><strong class="wrn">VM: %s</strong>: %s</li>' % (html_escape(v), html_escape(m))
+            for v, m in summary["warnings"]
+        ) + '</ul>')
+    else:
+        parts.append('<p>Keine.</p>')
 
+    # Fehler
+    parts.append('<h3>Fehler (%d)</h3>' % len(summary["errors"]))
     if summary["errors"]:
-        parts.append('<h3>Fehler (%d)</h3><ul>' % len(summary["errors"]))
-        parts.append("".join('<li><strong class="err">VM: %s</strong>: %s</li>' % (html_escape(v), html_escape(m)) for v, m in summary["errors"]) + '</ul>')
-    
+        parts.append('<ul>' + "".join(
+            '<li><strong class="err">VM: %s</strong>: %s</li>' % (html_escape(v), html_escape(m))
+            for v, m in summary["errors"]
+        ) + '</ul>')
+    else:
+        parts.append('<p>Keine.</p>')
+
     if summary["config"]:
         parts.append("<hr><h4>Konfiguration:</h4><ul>")
         if summary.get("source_host", "N/A") != "N/A":
@@ -257,49 +288,6 @@ def create_summary(log_content):
     if summary["directory_listing"]:
         parts.append('<hr><h3>Dateien:</h3><pre>%s</pre>' % "\n".join(html_escape(x) for x in summary["directory_listing"]))
     
-    parts.append("</body></html>")
-    return "\n".join(parts), (len(summary["errors"]) > 0 or len(summary["warnings"]) > 0)
-    
-    # --------------------------------------------
-        # Konfiguration
-    if summary["config"]:
-        parts.append("<hr><h4>Konfiguration:</h4><ul>")
-
-        # Quell/Ziel Daten (direkte Replikation)
-        if summary.get("source_host", "N/A") != "N/A":
-            parts.append("<li><b>Quell-Host:</b> %s</li>" % html_escape(summary["source_host"]))
-        if summary.get("target_host", "N/A") != "N/A":
-            parts.append("<li><b>Ziel-Host:</b> %s</li>" % html_escape(summary["target_host"]))
-        if summary.get("target_datastore", "N/A") != "N/A":
-            parts.append("<li><b>Ziel-Datastore:</b> %s</li>" % html_escape(summary["target_datastore"]))
-
-        # Restliche Konfig-Zeilen unverändert
-        parts.append("".join("<li>%s</li>" % html_escape(i) for i in summary["config"]))
-        parts.append("</ul>")
-    
-    if summary["storage_after"]: parts.append('<h4>Speicherplatz (Nachher):</h4><pre>%s</pre>' % "\n".join(html_escape(x) for x in summary["storage_after"]))
-    if summary["directory_listing"]: parts.append('<hr><h3>Dateien:</h3><pre>%s</pre>' % "\n".join(html_escape(x) for x in summary["directory_listing"]))
-    parts.append("</body></html>")
-    
-    return "\n".join(parts), (len(summary["errors"]) > 0 or len(summary["warnings"]) > 0)
-
-    # Warnungen und Fehler
-    parts.append("<h3>Warnungen (%d)</h3>" % len(summary["warnings"]))
-    parts.append("<ul>%s</ul>" % "".join('<li><strong class="warn-vm">VM: %s</strong><ul><li>%s</li></ul></li>' % (html_escape(vm), html_escape(msg)) for vm, msg in summary["warnings"]) if summary["warnings"] else "<p>Keine.</p>")
-    parts.append("<h3>Fehler (%d)</h3>" % len(summary["errors"]))
-    parts.append("<ul>%s</ul>" % "".join('<li><strong class="error-vm">VM: %s</strong><ul><li>%s</li></ul></li>' % (html_escape(vm), html_escape(msg)) for vm, msg in summary["errors"]) if summary["errors"] else "<p>Keine.</p>")
-    
-    # Konfiguration & Speicher
-    if summary["config"]: parts.append("<hr><h4>Konfiguration:</h4><ul>%s</ul>" % "".join("<li>%s</li>" % html_escape(i) for i in summary["config"]))
-    if summary["storage_before"] or summary["storage_after"]:
-        parts.append("<h4>Speicherplatz:</h4><pre>")
-        if summary["storage_after"]: parts.append("<b>Nach dem Job:</b>\n" + "\n".join(html_escape(s) for s in summary["storage_after"]))
-        if summary["storage_before"]: parts.append("\n<b>Vor dem Job:</b>\n" + "\n".join(html_escape(s) for s in summary["storage_before"]))
-        parts.append("</pre>")
-    
-    # Verzeichnis & Log
-    if summary["directory_listing"]: parts.append("<hr><h3>Detailliertes Verzeichnis-Listing</h3><pre>%s</pre>" % "\n".join(html_escape(x) for x in summary["directory_listing"]))
-    if summary["detailed_log"]: parts.append("<hr><h3>Detailliertes Prozess-Log</h3><pre>%s</pre>" % "\n".join(html_escape(x) for x in summary["detailed_log"]))
     parts.append("</body></html>")
     return "\n".join(parts), (len(summary["errors"]) > 0 or len(summary["warnings"]) > 0)
 
