@@ -224,12 +224,12 @@ def create_summary(log_content):
     parts.append('<h2 style="color: %s;">Backup-Zusammenfassung v9.1</h2><hr>' % status_color)
     parts.append('<p><b>Status:</b> <span style="color: %s; font-weight: bold;">%s</span></p>' % (status_color, html_escape(summary["status"])))
     parts.append("<h4>Job-Details:</h4><ul>")
-    parts.append("<li><b>Startzeit:</b> %s</li>" % html_escape(summary["start_time"]))
-    parts.append("<li><b>Endzeit:</b> %s</li>" % (html_escape(summary["end_time"]) if summary["end_time"] != "N/A" else "<em>Job nicht beendet</em>"))
-    parts.append("<li><b>Dauer:</b> %s</li>" % html_escape(summary["duration"]))
-    if summary["final_size"] != "N/A": parts.append("<li><b>Groesse:</b> %s</li>" % html_escape(summary["final_size"]))
+    parts.append("<li><b>Startzeit:&nbsp;&nbsp;</b> %s</li>" % html_escape(summary["start_time"]))
+    parts.append("<li><b>Endzeit:&nbsp;&nbsp;&nbsp;</b> %s</li>" % (html_escape(summary["end_time"]) if summary["end_time"] != "N/A" else "<em>Job nicht beendet</em>"))
+    parts.append("<li><b>Dauer:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</b> %s</li>" % html_escape(summary["duration"]))
+    if summary["final_size"] != "N/A": parts.append("<li><b>Groesse:&nbsp;&nbsp;&nbsp;</b> %s</li>" % html_escape(summary["final_size"]))
     if summary.get("avg_speed") and summary["avg_speed"] != "N/A": 
-        parts.append("<li><b>Durchschnitts-Speed:</b> %s</li>" % html_escape(summary["avg_speed"]))
+        parts.append("<li><b>Durchschnitts-Speed:&nbsp;</b> %s</li>" % html_escape(summary["avg_speed"]))
     parts.append("</ul><hr>")
 
     parts.append('<h3>Verarbeitete VMs (%d)</h3>' % len(vm_report_lines))
