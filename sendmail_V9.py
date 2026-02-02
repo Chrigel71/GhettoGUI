@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # GhettoVCB-GUI 8.7.0 Sendmail (ESXi 6.0 - 8.0 Compatible)
-# V9.1 - Fix: Precise Size Calculation
+# V9 - Fix: Precise Size Calculation
 # Patch: Hardened OpenSSL/NC fallback for ESXi 6 email-log sending (keeps ESXi 8 behavior).
 #
 # Features:
@@ -170,22 +170,14 @@ def create_summary(log_content):
     total_gb = 0.0
     if vm_report_lines:
         for _rep in vm_report_lines:
-            m = re.search(r':\s*([0-9\.,]+)\s*([TGM])B?', _rep, re.IGNORECASE)
+            m = re.search(r':\s*([0-9\.]+)\s*([GM])B?', _rep, re.IGNORECASE)
             if not m: m = re.search(r'\(([0-9\.]+)\s*([GM]B?)\)', _rep, re.IGNORECASE)
             if m:
                 try:
                     val = float(m.group(1).replace(',', '.'))
                     unit = m.group(2).upper().replace('B','')
-
-                    if unit.startswith('M'):
-                        gb = val / 1024.0
-                    elif unit.startswith('T'):
-                        gb = val * 1024.0
-                    else:  # 'G'
-                        gb = val
-
+                    gb = val/1024.0 if unit.startswith('M') else val
                     total_gb += gb
-
                 except: pass
         
         if total_gb > 0:
@@ -221,7 +213,7 @@ def create_summary(log_content):
         status_color = "#333"
 
     parts = ["<html><head><meta charset='utf-8'><style>body{font-family:Arial,sans-serif;font-size:13px}h3,h4{color:#333}pre{background:#f4f4f4;padding:10px;border:1px solid #ddd;white-space:pre-wrap}.err{color:#dc3545;font-weight:bold}.wrn{color:#b06a00;font-weight:bold}</style></head><body>"]   
-    parts.append('<h2 style="color: %s;">Backup-Zusammenfassung v9.1</h2><hr>' % status_color)
+    parts.append('<h2 style="color: %s;">Backup-Zusammenfassung v9</h2><hr>' % status_color)
     parts.append('<p><b>Status:</b> <span style="color: %s; font-weight: bold;">%s</span></p>' % (status_color, html_escape(summary["status"])))
     parts.append("<h4>Job-Details:</h4><ul>")
     parts.append("<li><b>Startzeit:</b> %s</li>" % html_escape(summary["start_time"]))
