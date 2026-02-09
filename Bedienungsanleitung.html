@@ -1,355 +1,857 @@
 <!DOCTYPE html>
-<html>
+<html lang="de">
 <head>
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-<title>Bedienungsanleitung - GhettoGUI V8.0.0</title>
-<style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; line-height: 1.6; color: #333; max-width: 900px; margin: 20px auto; padding: 0 15px; }
-    h1, h2, h3, h4 { color: #005a9c; border-bottom: 2px solid #eee; padding-bottom: 5px; }
-    code { background-color: #f3f4f6; padding: 2px 5px; border-radius: 4px; font-family: "Courier New", Courier, monospace; }
-    a { color: #007bff; text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    ul, ol { padding-left: 20px; }
-    li { margin-bottom: 10px; }
-    strong { color: #1d1d1d; }
-    hr { border: 0; height: 1px; background: #ddd; }
-    .note { background-color: #fff3cd; border-left: 5px solid #ffeeba; padding: 15px; margin: 20px 0; border-radius: 4px; }
-    /* Inhaltsverzeichnis */
-    .toc { background-color: #f9f9f9; border: 1px solid #eee; padding: 15px 25px; border-radius: 5px; margin-bottom: 25px; }
-    .toc h3 { border-bottom: none; margin-top: 0; }
-    .toc ul { padding-left: 15px; }
-    .toc ul li { margin-bottom: 5px; }
-    /* Button-Erklärungen */
-    .button-def { margin-bottom: 15px; }
-    .button-def strong { display: block; font-size: 1.1em; color: #1d1d1d; }
-    .button-def p { margin-top: 3px; margin-left: 10px; }
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GhettoGUI V8.7.8 – Bedienungsanleitung (Illustriert)</title>
+  <style>
+    :root {
+      --primary-color: #2c3e50;
+      --secondary-color: #3498db;
+      --accent-color: #e74c3c;
+      --bg-color: #f8f9fa;
+      --text-color: #333;
+      --border-color: #ddd;
+      --sidebar-width: 280px;
+    }
     
-    /* ================== NEU: HINZUGEFÜGT FÜR SCREENSHOTS ================== */
-    .screenshot-placeholder { 
-        display: block; 
-        text-align: center; 
-        padding: 20px; 
-        border: 1px dashed #ccc; 
-        margin: 25px 0; 
-        background-color: #f9f9f9; 
+    * {
+      box-sizing: border-box;
     }
-    .screenshot-placeholder img {
-        max-width: 100%;
-        height: auto;
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.7;
+      margin: 0;
+      padding: 0;
+      background: var(--bg-color);
+      color: var(--text-color);
+    }
+    
+    /* Sidebar Navigation */
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: var(--sidebar-width);
+      height: 100vh;
+      background: var(--primary-color);
+      color: #fff;
+      overflow-y: auto;
+      z-index: 1000;
+      transition: transform 0.3s ease;
+    }
+    
+    .sidebar-header {
+      padding: 20px;
+      background: rgba(0,0,0,0.2);
+      text-align: center;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .sidebar-header h1 {
+      margin: 0;
+      font-size: 1.3em;
+      font-weight: 600;
+    }
+    
+    .sidebar-header .version {
+      font-size: 0.85em;
+      opacity: 0.8;
+      margin-top: 5px;
+    }
+    
+    .nav-menu {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    
+    .nav-menu li {
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    
+    .nav-menu a {
+      display: block;
+      padding: 12px 20px;
+      color: rgba(255,255,255,0.85);
+      text-decoration: none;
+      transition: all 0.2s ease;
+      font-size: 0.95em;
+    }
+    
+    .nav-menu a:hover,
+    .nav-menu a.active {
+      background: var(--secondary-color);
+      color: #fff;
+      padding-left: 25px;
+    }
+    
+    .nav-menu .nav-icon {
+      margin-right: 10px;
+      width: 20px;
+      display: inline-block;
+      text-align: center;
+    }
+    
+    /* Main Content */
+    .main-content {
+      margin-left: var(--sidebar-width);
+      padding: 30px 50px;
+      max-width: 1000px;
+    }
+    
+    /* Mobile Menu Toggle */
+    .menu-toggle {
+      display: none;
+      position: fixed;
+      top: 15px;
+      left: 15px;
+      z-index: 1001;
+      background: var(--primary-color);
+      color: #fff;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 1.2em;
+    }
+    
+    /* Section Styles */
+    section {
+      background: #fff;
+      border-radius: 8px;
+      padding: 30px;
+      margin-bottom: 30px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+      scroll-margin-top: 20px;
+    }
+    
+    h2 {
+      color: var(--primary-color);
+      border-bottom: 3px solid var(--secondary-color);
+      padding-bottom: 10px;
+      margin-top: 0;
+      font-size: 1.6em;
+    }
+    
+    h3 {
+      color: var(--primary-color);
+      margin-top: 25px;
+      font-size: 1.2em;
+    }
+    
+    h4 {
+      color: #555;
+      margin-top: 20px;
+    }
+    
+    /* Table Styles */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      font-size: 0.95em;
+    }
+    
+    th, td {
+      border: 1px solid var(--border-color);
+      padding: 12px 15px;
+      text-align: left;
+    }
+    
+    th {
+      background: var(--primary-color);
+      color: #fff;
+      font-weight: 600;
+    }
+    
+    tr:nth-child(even) {
+      background: #f8f9fa;
+    }
+    
+    tr:hover {
+      background: #e8f4fc;
+    }
+    
+    /* Code Styles */
+    code {
+      background: #e8e8e8;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 0.9em;
+      color: #c7254e;
+    }
+    
+    pre {
+      background: #2d2d2d;
+      color: #f8f8f2;
+      padding: 15px 20px;
+      border-radius: 5px;
+      overflow-x: auto;
+      font-size: 0.9em;
+    }
+    
+    pre code {
+      background: none;
+      color: inherit;
+      padding: 0;
+    }
+    
+    /* List Styles */
+    ul, ol {
+      padding-left: 25px;
+    }
+    
+    li {
+      margin-bottom: 8px;
+    }
+    
+    /* Info Boxes */
+    .info-box {
+      padding: 15px 20px;
+      border-radius: 5px;
+      margin: 20px 0;
+    }
+    
+    .info-box.tip {
+      background: #d4edda;
+      border-left: 4px solid #28a745;
+    }
+    
+    .info-box.warning {
+      background: #fff3cd;
+      border-left: 4px solid #ffc107;
+    }
+    
+    .info-box.danger {
+      background: #f8d7da;
+      border-left: 4px solid #dc3545;
+    }
+    
+    .small {
+      font-size: 0.9em;
+      color: #666;
+      font-style: italic;
+    }
+    
+    /* Back to Top Button */
+    .back-to-top {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      background: var(--secondary-color);
+      color: #fff;
+      border: none;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 1.5em;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s ease;
+    }
+    
+    .back-to-top.visible {
+      opacity: 1;
+      visibility: visible;
+    }
+    
+    .back-to-top:hover {
+      background: var(--primary-color);
+      transform: translateY(-3px);
+    }
+    
+    /* Screenshot/Image Styles */
+    .screenshot {
+      max-width: 100%;
+      border: 1px solid var(--border-color);
+      border-radius: 5px;
+      margin: 15px 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .figure {
+      text-align: center;
+      margin: 20px 0;
+    }
+    
+    .figure figcaption {
+      font-size: 0.9em;
+      color: #666;
+      margin-top: 10px;
+    }
+    
+    /* Responsive Design */
+    @media (max-width: 900px) {
+      .sidebar {
+        transform: translateX(-100%);
+      }
+      
+      .sidebar.open {
+        transform: translateX(0);
+      }
+      
+      .main-content {
+        margin-left: 0;
+        padding: 20px;
+      }
+      
+      .menu-toggle {
+        display: block;
+      }
+      
+      section {
+        padding: 20px;
+      }
+    }
+    
+    /* Print Styles */
+    @media print {
+      .sidebar, .menu-toggle, .back-to-top {
+        display: none !important;
+      }
+      
+      .main-content {
+        margin-left: 0;
+        padding: 0;
+      }
+      
+      section {
+        box-shadow: none;
         border: 1px solid #ddd;
+        page-break-inside: avoid;
+      }
     }
-    /* =================================================================== */
-</style>
+  </style>
 </head>
-
 <body>
 
-<h1>Bedienungsanleitung: GhettoGUI V8.0.0</h1>
+<!-- Mobile Menu Toggle -->
+<button class="menu-toggle" onclick="toggleSidebar()" aria-label="Menü öffnen">☰</button>
 
-<h2>Navigation</h2>
-<ul>
-    <li><a href="index.html">Zurück zur Startseite</a></li>
-    <li><a href="Bedienungsanleitung.html">Bedienungsanleitung</a> (Diese Seite)</li>
-</ul>
+<!-- Sidebar Navigation -->
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <h1>GhettoGUI</h1>
+    <div class="version">Version 8.7.8 – Bedienungsanleitung</div>
+  </div>
+  
+  <ul class="nav-menu">
+    <li><a href="#intro"><span class="nav-icon">📖</span>Einführung</a></li>
+    <li><a href="#tabs"><span class="nav-icon">📑</span>Tabs & Bereiche</a></li>
+    <li><a href="#backup"><span class="nav-icon">💾</span>Backup</a></li>
+    <li><a href="#restore"><span class="nav-icon">🔄</span>Restore</a></li>
+    <li><a href="#replication"><span class="nav-icon">🔁</span>Replikation</a></li>
+    <li><a href="#storage"><span class="nav-icon">🗄️</span>Storage Wizard</a></li>
+    <li><a href="#cron"><span class="nav-icon">⏰</span>Cron / Zeitpläne</a></li>
+    <li><a href="#mail"><span class="nav-icon">📧</span>E-Mail / Benachrichtigungen</a></li>
+    <li><a href="#traffic"><span class="nav-icon">📊</span>Netzwerk-Traffic Monitor</a></li>
+    <li><a href="#update"><span class="nav-icon">⬆️</span>ESXi Update</a></li>
+    <li><a href="#proxmox"><span class="nav-icon">🖥️</span>Proxmox Manager 9.0</a></li>
+    <li><a href="#trouble"><span class="nav-icon">🔧</span>Fehlerbehebung</a></li>
+    <li><a href="#faq"><span class="nav-icon">❓</span>FAQ</a></li>
+    <li><a href="#changelog"><span class="nav-icon">📝</span>Changelog</a></li>
+    <li><a href="#gui-referenz"><span class="nav-icon">🖼️</span>GUI-Referenz</a></li>
+  </ul>
+</nav>
 
-<hr>
+<!-- Main Content -->
+<main class="main-content">
 
-<div class="toc">
-    <h3>Inhaltsverzeichnis</h3>
+  <!-- Einführung -->
+  <section id="intro">
+    <h2>📖 Einführung</h2>
+    <p>
+      <strong>GhettoGUI</strong> ist ein grafisches PowerShell-Frontend für <em>ghettoVCB</em> (ESXi-Backup-Script von William Lam).
+      Es vereinfacht Backup, Restore und Replikation von VMs auf VMware ESXi-Hosts und unterstützt seit Version 8.7.x auch <strong>Proxmox VE</strong>.
+    </p>
+    
+    <h3>Hauptfunktionen</h3>
     <ul>
-        <li><a href="#tab-esxi">Tab: ESXi Manager</a>
-            <ul>
-                <li><a href="#esxi-verbindung">Verbindung & Hauptkonfiguration</a></li>
-                <li><a href="#esxi-ghetto-konfig">GhettoVCB Konfiguration (Backup-Einstellungen)</a></li>
-                <li><a href="#esxi-installation">Installation & Aktionen (Rechte Seite)</a></li>
-                <li><a href="#esxi-zeitplanung">Zeitplanung (ESXi Cron)</a></li>
-                <li><a href="#esxi-email">E-Mail Benachrichtigung (ESXi)</a></li>
-                <li><a href="#esxi-aktionen">Backup-Aktionen (ESXi)</a></li>
-            </ul>
-        </li>
-        <li><a href="#tab-proxmox">Tab: Proxmox Manager</a>
-            <ul>
-                <li><a href="#proxmox-verbindung">Verbindung</a></li>
-                <li><a href="#proxmox-steuerung">Backup-Steuerung</a></li>
-                <li><a href="#proxmox-storage">Storage Management</a></li>
-                <li><a href="#proxmox-zeitplanung">Zeitplanung (Proxmox API)</a></li>
-            </ul>
-        </li>
-        <li><a href="#ssh-konsole">Fenster: SSH-Konsole & Assistenten</a>
-             <ul>
-                <li><a href="#ssh-assistenten">Einrichtungs-Assistenten</a></li>
-                <li><a href="#ssh-management">Host & Job Management</a></li>
-                <li><a href="#ssh-cron">Geplante Tasks (Cron)</a></li>
-            </ul>
-        </li>
+      <li>Backup einzelner oder mehrerer VMs (mit Scheduling via Cron)</li>
+      <li>Restore von Backups (inkl. Live-Fortschrittsanzeige)</li>
+      <li>Replikation zwischen Hosts</li>
+      <li>E-Mail-Benachrichtigungen bei Erfolg/Fehler</li>
+      <li>Storage-Wizard (NFS, iSCSI, LVM)</li>
+      <li>ESXi-Update-Workflow (.zip/.vib)</li>
+      <li>Proxmox-Manager (ab 9.0)</li>
     </ul>
-</div>
+    
+    <h3>Voraussetzungen</h3>
+    <ul>
+      <li>Windows mit PowerShell 5.1+</li>
+      <li>SSH-Zugang zum ESXi-Host aktiviert</li>
+      <li>ghettoVCB-Script auf dem Host installiert</li>
+    </ul>
+  </section>
 
-<hr>
+  <!-- Tabs & Bereiche -->
+  <section id="tabs">
+    <h2>📑 Tabs & Bereiche</h2>
+    <p>Die GUI ist in mehrere Tabs unterteilt:</p>
+    
+    <table>
+      <tr>
+        <th>Tab</th>
+        <th>Beschreibung</th>
+      </tr>
+      <tr>
+        <td><strong>ESXi</strong></td>
+        <td>Hauptbereich für Backup/Restore/Replikation, VM-Liste, Job-Verwaltung</td>
+      </tr>
+      <tr>
+        <td><strong>Proxmox Manager 9.0</strong></td>
+        <td>Proxmox-spezifische Funktionen (API-Login, Backup-Jobs, Storage-Wizard)</td>
+      </tr>
+      <tr>
+        <td><strong>Einstellungen</strong></td>
+        <td>Globale Konfiguration, Pfade, E-Mail-Setup</td>
+      </tr>
+    </table>
+    
+    <h3>ESXi-Tab Bereiche</h3>
+    <ul>
+      <li><strong>Verbindung:</strong> Host-IP, Benutzer, Passwort, Connect-Button</li>
+      <li><strong>VM-Liste:</strong> Checkboxen zur Auswahl der VMs</li>
+      <li><strong>Backup-Optionen:</strong> Ziel-Datastore, Rotation, Quiesce, etc.</li>
+      <li><strong>Job-Verwaltung:</strong> Jobs speichern/laden/löschen</li>
+      <li><strong>Konsole/Log:</strong> Live-Ausgabe der Operationen</li>
+    </ul>
+  </section>
 
-<h2 id="tab-esxi">Tab: ESXi Manager</h2>
-<p>Dieser Tab steuert alle Funktionen, die sich auf VMware ESXi und das GhettoVCB-Skript beziehen.</p>
+  <!-- Backup -->
+  <section id="backup">
+    <h2>💾 Backup</h2>
+    
+    <h3>Grundablauf</h3>
+    <ol>
+      <li>Mit ESXi-Host verbinden (IP, User, Passwort)</li>
+      <li>VMs in der Liste auswählen (Checkboxen)</li>
+      <li>Ziel-Datastore und Backup-Verzeichnis wählen</li>
+      <li>Optionen setzen (Rotation, Quiesce, etc.)</li>
+      <li>Backup starten</li>
+    </ol>
+    
+    <h3>Wichtige Optionen</h3>
+    <table>
+      <tr>
+        <th>Option</th>
+        <th>Beschreibung</th>
+      </tr>
+      <tr>
+        <td><code>VM_BACKUP_ROTATION_COUNT</code></td>
+        <td>Anzahl der aufzubewahrenden Backup-Generationen</td>
+      </tr>
+      <tr>
+        <td><code>ENABLE_HARD_POWER_OFF</code></td>
+        <td>VM hart ausschalten, falls Shutdown fehlschlägt</td>
+      </tr>
+      <tr>
+        <td><code>ITER_TO_WAIT_SHUTDOWN</code></td>
+        <td>Wartezyklen vor Hard-Power-Off</td>
+      </tr>
+      <tr>
+        <td><code>POWER_VM_DOWN_BEFORE_BACKUP</code></td>
+        <td>VM vor Backup herunterfahren (konsistenteres Backup)</td>
+      </tr>
+      <tr>
+        <td><code>ENABLE_COMPRESSION</code></td>
+        <td>VMDK-Komprimierung aktivieren</td>
+      </tr>
+    </table>
+    
+    <h3>Job-Verwaltung</h3>
+    <p>
+      Jobs werden als <code>*.json</code> gespeichert und enthalten VM-Auswahl, Optionen und Ziel-Konfiguration.
+      In Version 8.7.8 lädt „Job laden" die VM-Liste automatisch nach und setzt die Checkboxen korrekt.
+    </p>
+  </section>
 
-<div class="screenshot-placeholder">
+  <!-- Restore -->
+  <section id="restore">
+    <h2>🔄 Restore</h2>
+    
+    <h3>Ablauf</h3>
+    <ol>
+      <li>Backup-Verzeichnis auf dem Datastore auswählen</li>
+      <li>Ziel-Datastore für die wiederhergestellte VM wählen</li>
+      <li>Restore starten (mit Sicherheitsabfrage seit 8.7.8)</li>
+      <li>Live-Fortschritt im Log beobachten</li>
+    </ol>
+    
+    <h3>Neue Features in 8.7.8</h3>
+    <ul>
+      <li><strong>Live-Kopierfortschritt:</strong> Prozentanzeige während des Restore</li>
+      <li><strong>Sicherheitsabfrage:</strong> Bestätigung vor Restore-Start</li>
+      <li><strong>Kontextsensitive Popups:</strong> Abschlussmeldung mit VM-Name</li>
+      <li><strong>E-Mail-Benachrichtigung:</strong> Detaillierte Mail nach Restore</li>
+    </ul>
+    
+    <div class="info-box warning">
+      <strong>Hinweis:</strong> Bei sehr großen VMs kann der Restore lange dauern. 
+      Beobachte den Live-Fortschritt und prüfe bei Stillstand Storage-IO und Netzwerk.
+    </div>
+  </section>
+
+  <!-- Replikation -->
+  <section id="replication">
+    <h2>🔁 Replikation</h2>
+    <p>
+      Replikation kopiert VMs zwischen ESXi-Hosts. Dies ist nützlich für Disaster Recovery oder Migration.
+    </p>
+    
+    <h3>Konfiguration</h3>
+    <ul>
+      <li>Quell-Host und Ziel-Host konfigurieren</li>
+      <li>VMs zur Replikation auswählen</li>
+      <li>Ziel-Datastore auf dem Remote-Host wählen</li>
+    </ul>
+    
+    <h3>Änderung in 8.7.8</h3>
+    <p>
+      Der Replikations-Dialog verwendet nun „Speichern unter…" statt „Speichern" für klarere Benutzerführung.
+    </p>
+  </section>
+
+  <!-- Storage Wizard -->
+  <section id="storage">
+    <h2>🗄️ Storage Wizard</h2>
+    <p>
+      Der Storage-Wizard hilft beim Einrichten von Datastores auf ESXi und Proxmox.
+    </p>
+    
+    <h3>Unterstützte Storage-Typen</h3>
+    <table>
+      <tr>
+        <th>Typ</th>
+        <th>Beschreibung</th>
+      </tr>
+      <tr>
+        <td><strong>NFS</strong></td>
+        <td>Network File System – einfach einzurichten, gut für Backups</td>
+      </tr>
+      <tr>
+        <td><strong>iSCSI</strong></td>
+        <td>Block-Storage über Netzwerk – höhere Performance</td>
+      </tr>
+      <tr>
+        <td><strong>LVM</strong></td>
+        <td>Logical Volume Manager – für Proxmox, Disk-Images</td>
+      </tr>
+    </table>
+    
+    <p class="small">
+      Für LVM wird (laut Hinweis im Script) standardmäßig ein Layout für „Disk-Images" vorbereitet.
+    </p>
+  </section>
+
+  <!-- Cron / Zeitpläne -->
+  <section id="cron">
+    <h2>⏰ Cron / Zeitpläne</h2>
+    <p>
+      GhettoGUI kann Cron-Jobs auf dem ESXi hostseitig anlegen/ändern (Button <strong>„Zeitplan erstellen / Zeitplan anzeigen"</strong>).
+    </p>
+    
+    <h3>Unterstützte Intervalle</h3>
+    <ul>
+      <li>Täglich</li>
+      <li>Wöchentlich</li>
+      <li><strong>2-Wöchentlich</strong> (neu in 8.7.8)</li>
+      <li><strong>Monatlich</strong> (neu in 8.7.8)</li>
+    </ul>
+    
+    <h3>ESXi6 Besonderheiten</h3>
+    <div class="info-box tip">
+      BusyBox-Einschränkungen (eingeschränkte <code>sed</code>/<code>grep</code>/<code>date</code> Optionen) 
+      werden in den Patch-Skripten berücksichtigt. In 8.7.8 ist „E-Mail und Cron für ESXi 6.0" explizit gefixt.
+    </div>
+  </section>
+
+  <!-- E-Mail / Benachrichtigungen -->
+  <section id="mail">
+    <h2>📧 E-Mail / Benachrichtigungen</h2>
+    
+    <h3>Grundprinzip</h3>
+    <ul>
+      <li>ghettoVCB erzeugt ein detailliertes Log und ruft am Ende ein Mail-Script auf (<code>sendmail*.py</code>)</li>
+      <li>ESXi6 nutzt häufig Port 25 (Fallback) als zuverlässigen Weg</li>
+      <li>ESXi8 kann Port 587 (SMTP Submission) nutzen – abhängig von TLS/Auth</li>
+    </ul>
+    
+    <h3>Ports 25 vs 587</h3>
+    <table>
+      <tr>
+        <th>Port</th>
+        <th>Typ</th>
+        <th>Typische Anforderungen</th>
+        <th>Empfehlung</th>
+      </tr>
+      <tr>
+        <td>25</td>
+        <td>SMTP</td>
+        <td>oft ohne Auth/TLS (in LAN), sehr robust</td>
+        <td>Für ESXi6/Legacy als Fallback ideal</td>
+      </tr>
+      <tr>
+        <td>587</td>
+        <td>Submission</td>
+        <td>STARTTLS, Auth, Zertifikatsprüfung</td>
+        <td>Auf ESXi8 möglich, TLS-Handling beachten</td>
+      </tr>
+    </table>
+    
+    <h3>Wichtig: Fehlerfall vs OK-Fall</h3>
+    <div class="info-box warning">
+      Wenn Mails bei „OK" gehen, aber bei „ERROR/WARN" nicht, ist das fast immer ein 
+      <strong>Payload/Encoding/Linebreak</strong>-Thema: Fehlerlogs enthalten oft Sonderzeichen, 
+      sehr lange Zeilen oder ungewöhnliche Sequenzen.
+    </div>
+    
+    <h3>Installation</h3>
+    <p>
+      Button <strong>„E-Mail-Skript installieren"</strong> kopiert/aktiviert das Script auf dem Host.
+      Konfiguration erfolgt über die ghettoVCB-Config (EMAIL_SERVER, EMAIL_SERVER_PORT, EMAIL_FROM, EMAIL_TO, etc.).
+    </p>
+  </section>
+
+  <!-- Netzwerk-Traffic Monitor -->
+  <section id="traffic">
+    <h2>📊 Netzwerk-Traffic Monitor</h2>
+    <p>
+      Im ESXi-Tab gibt es einen Bereich <strong>„Netzwerk-Traffic"</strong>. 
+      Ein Timer pollt periodisch Werte und aktualisiert die Anzeige.
+    </p>
+    <p>
+      Dies ist hilfreich, um Replikations-/Backup-Traffic zu beobachten und Engpässe zu erkennen.
+    </p>
+  </section>
+
+  <!-- ESXi Update -->
+  <section id="update">
+    <h2>⬆️ ESXi Update (.zip/.vib)</h2>
+    <p>
+      Neu in 8.7.8: ESXi Update-Workflow (ZIP/VIB). Typisch umfasst das:
+    </p>
+    <ul>
+      <li>Upload eines Updates auf den Host</li>
+      <li>Install/Update via <code>esxcli</code></li>
+      <li>Log-Ausgaben und Fehlerbehandlung</li>
+    </ul>
+    
+    <div class="info-box danger">
+      <strong>Achtung:</strong> Je nach Umgebung kann ein Reboot nötig sein – plane Downtime ein!
+    </div>
+  </section>
+
+  <!-- Proxmox Manager 9.0 -->
+  <section id="proxmox">
+    <h2>🖥️ Proxmox Manager 9.0</h2>
+    
+    <h3>Funktionen</h3>
+    <ul>
+      <li>API Login / Ticket Handling (<code>Get-ProxmoxTicket</code>)</li>
+      <li>REST Requests mit CSRF Token und Cookie (<code>Invoke-ProxmoxApiRequest</code>)</li>
+      <li>Backup-Job erstellen (<code>New-ProxmoxBackupJob</code>)</li>
+      <li>Task-Status & Task-Logs abfragen</li>
+      <li>Storage-Auswahl-Dialoge und Storage-Wizard (u.a. LVM)</li>
+    </ul>
+    
+    <h3>Grundablauf</h3>
+    <ol>
+      <li>Im Tab <strong>„Proxmox Manager 9.0"</strong> Host/IP, User und Passwort eintragen</li>
+      <li>Login – GhettoGUI holt ein Ticket und merkt CSRF Token</li>
+      <li>Storages auswählen (Dialog) oder Storage-Wizard ausführen</li>
+      <li>Backup-Job definieren und starten</li>
+      <li>Task-Polling zeigt Fortschritt; Log-Output wird live ergänzt</li>
+    </ol>
+    
+    <p class="small">
+      Hinweis: Das Script setzt TLS12 und nutzt eine „TrustAllCertsPolicy". 
+      In produktiven Umgebungen ist ein korrektes Zertifikatssetup empfehlenswert.
+    </p>
+  </section>
+
+  <!-- Fehlerbehebung -->
+  <section id="trouble">
+    <h2>🔧 Fehlerbehebung</h2>
+    
+    <h3>1) SSH / Verbindungsprobleme</h3>
+    <ul>
+      <li>SSH auf ESXi aktiviert?</li>
+      <li>Firewall/Routing OK?</li>
+      <li>Timeout (8.7.8: 60s) reicht bei langsamen Hosts evtl. knapp → Netz/Host-Load prüfen</li>
+    </ul>
+    
+    <h3>2) Cron läuft nicht</h3>
+    <ul>
+      <li>ESXi6: BusyBox-Kompatibilität – keine GNU-Optionen erwarten</li>
+      <li>Prüfe, ob der Cron-Eintrag wirklich gespeichert wurde und ob Pfade stimmen</li>
+    </ul>
+    
+    <h3>3) E-Mail: Port 587 funktioniert bei OK, aber nicht bei ERROR</h3>
+    <ul>
+      <li><strong>Body-Normalisierung:</strong> CRLF/Unicode/zu lange Zeilen</li>
+      <li><strong>Größe:</strong> große Logs können SMTP Limits sprengen</li>
+      <li><strong>STARTTLS/Auth:</strong> bei Fehlern wird ggf. ein anderer Codepfad genutzt</li>
+      <li>Wenn Port 25 zuverlässig ist, nutze ihn als Fallback oder primär (in LAN/Relay-Szenarien)</li>
+    </ul>
+    
+    <h3>4) Restore langsam / hängt</h3>
+    <ul>
+      <li>Live-Log zeigt Fortschritt – wenn er steht: Storage-IO, Netzwerk, Ziel-Datastore prüfen</li>
+      <li>Bei sehr großen VMs: Zeitfenster und Datastore-Performance berücksichtigen</li>
+    </ul>
+  </section>
+
+  <!-- FAQ -->
+  <section id="faq">
+    <h2>❓ FAQ</h2>
+    
+    <h3>Warum fragt ESXi manchmal nicht „kopiert oder verschoben"?</h3>
+    <p>
+      Wenn VMX-UUID-Felder beibehalten werden oder eine VMX-Patch-Routine nicht sauber läuft, 
+      startet ESXi ohne Prompt. Das ist normal und wird durch konsequentes Entfernen/Regenerieren 
+      der entsprechenden VMX-Keys korrigiert.
+    </p>
+    
+    <h3>Kann ich Jobs wiederverwenden?</h3>
+    <p>
+      Ja. Jobs werden als <code>*.json</code> gespeichert. In 8.7.8 lädt „Job laden" die VM-Liste 
+      automatisch nach und setzt die Checkboxen korrekt.
+    </p>
+  </section>
+
+  <!-- Changelog -->
+  <section id="changelog">
+    <h2>📝 Changelog (8.7.8)</h2>
+    <ul>
+      <li><strong>Fix:</strong> Job laden synchronisiert VM-Liste & Checkboxen korrekt</li>
+      <li><strong>Neu:</strong> Restore zeigt Live-Kopierfortschritt im Log</li>
+      <li><strong>Neu:</strong> Sicherheitsabfrage vor Restore-Start</li>
+      <li><strong>Fix:</strong> Button-Größen (Ordner-Auswahl) korrekt</li>
+      <li><strong>Neu:</strong> Abschluss-Popups (Replikation/Restore) kontextsensitiv mit VM-Name</li>
+      <li><strong>Neu:</strong> Restore versendet ebenfalls detaillierte E-Mail</li>
+      <li><strong>Fix:</strong> Replikations-Dialog „Speichern" → „Speichern unter…"</li>
+      <li><strong>Fix:</strong> SSH/SFTP Timeout auf 60s</li>
+      <li><strong>Fix:</strong> E-Mail & Cron für ESXi 6.0</li>
+      <li><strong>Neu:</strong> ESXi Update (.zip/.vib)</li>
+      <li><strong>Neu:</strong> Cron 2-wöchentlich & monatlich</li>
+      <li><strong>Neu:</strong> Proxmox 9.0</li>
+    </ul>
+  </section>
+
+  <!-- GUI-Referenz -->
+  <section id="gui-referenz">
+    <h2>🖼️ GUI-Referenz (illustriert)</h2>
+    <p class="small">
+      Diese Sektion ergänzt die Anleitung um beschriftete Screenshot-Abschnitte.
+    </p>
+	
+	<div class="screenshot-placeholder">
     <img src="Maingui.png" alt="GhettoGUI ESXi Manager Hauptfenster">
 </div>
-<h3 id="esxi-verbindung">Verbindung & Hauptkonfiguration</h3>
-<div class="button-def">
-    <strong>Posh-SSH prüfen</strong>
-    <p>Prüft, ob das PowerShell-Modul <code>Posh-SSH</code> auf Ihrem PC installiert ist. Falls nicht, bietet es die automatische Installation an (Internetverbindung erforderlich). Zeigt bei Erfolg die Versionen von PowerShell und Posh-SSH an.</p>
+	
+    <p>
+      <em>GhettoGUI ESXi Manager Hauptfenster.</em>
+    </p>
+		<div class="screenshot-placeholder">
+    <img src="Maingui.png" alt="GhettoGUI ESXi Manager Hauptfenster">
 </div>
-<div class="button-def">
-    <strong>Verbinden</strong>
-    <p>Baut die Haupt-SSH-Verbindung zum eingetragenen ESXi Host auf. Fragt nach dem Passwort und speichert die Anmeldeinformationen für die Dauer der Sitzung. Lädt nach Erfolg die Netzwerk-Interfaces (für den Traffic-Monitor) und synchronisiert die VM-Auswahl, falls ein Job geladen ist.</p>
+	
+    <p>
+      <em>GhettoGUI ESXi Manager Hauptfenster.</em>
+    </p>
+	
+		<div class="screenshot-placeholder">
+    <img src="Maingui.png" alt="GhettoGUI ESXi Manager Hauptfenster">
 </div>
-<div class="button-def">
-    <strong>Trennen</strong>
-    <p>Schließt alle aktiven SSH-Verbindungen zum ESXi-Host (Hauptverbindung, Replikations-Zielverbindung) und stoppt alle Live-Monitoring-Timer.</p>
+	
+    <p>
+      <em>GhettoGUI ESXi Manager Hauptfenster.</em>
+    </p>
+	
+		<div class="screenshot-placeholder">
+    <img src="Maingui.png" alt="GhettoGUI ESXi Manager Hauptfenster">
 </div>
-<div class="button-def">
-    <strong>♻ (Jobs neu laden)</strong>
-    <p>Durchsucht das GhettoGUI-Programmverzeichnis nach Job-Dateien (<code>*.json</code>) und lädt die Dropdown-Liste "Gespeicherter Job" neu.</p>
-</div>
+	
+    <p>
+      <em>GhettoGUI ESXi Manager Hauptfenster.</em>
+    </p>
+	
+  </section>
 
-<h3 id="esxi-ghetto-konfig">GhettoVCB Konfiguration (Backup-Einstellungen)</h3>
-<div class="button-def">
-    <strong>"..." (bei GhettoVCB-Pfad)</strong>
-    <p>Öffnet einen Datastore-Browser, in dem Sie ein Haupt-Datastore auswählen können. Die GUI hängt automatisch <code>/ghettoVCB</code> an. Beispiel: <code>/vmfs/volumes/datastore1/ghettoVCB</code>.</p>
-</div>
-<div class="button-def">
-    <strong>"..." (bei Backup Volume)</strong>
-    <p>Öffnet einen Datastore-Browser, in dem Sie den Ziel-Datastore für Ihre Backups auswählen.</p>
-</div>
-<div class="button-def">
-    <strong>Direkte Replic.</strong>
-    <p>Öffnet den Assistenten für die <strong>Host-zu-Host Replikation</strong>. Diese Methode ist schnell (Online/Offline) und nutzt SSH/TAR, erfordert aber eine funktionierende passwortlose SSH-Verbindung von der Quelle zum Ziel (siehe SSH-Konsole).</p>
-</div>
-<div class="button-def">
-    <strong>Replication</strong>
-    <p>Öffnet den Assistenten für die <strong>Replikation via Zwischenspeicher</strong>. Diese Methode nutzt GhettoVCB, um ein Backup auf ein geteiltes NAS (NFS/iSCSI) zu machen, und registriert es von dort aus auf dem Ziel-Host. Benötigt kein passwortloses SSH.</p>
-</div>
-<div class="button-def">
-    <strong>Backup download</strong>
-    <p>Ermöglicht das Herunterladen eines kompletten Backup-Ordners vom ESXi-Host auf Ihren PC. Benötigt <code>WinSCP.exe</code> und <code>WinSCPnet.dll</code> im GhettoGUI-Programmverzeichnis. Eine passwortlose SSH-Verbindung (mittels <code>id_rsa</code>-Schlüssel) wird empfohlen (siehe SSH-Konsole).</p>
-</div>
-<div class="button-def">
-    <strong>VMs laden</strong>
-    <p>Ruft die aktuelle Liste aller VMs vom verbundenen ESXi-Host ab und füllt die Checkliste darunter.</p>
-</div>
-<div class="button-def">
-    <strong>Auswahl übernehmen</strong>
-    <p>Nimmt alle VMs, die Sie in der Checkliste angehakt haben, und trägt deren Namen in das Textfeld <code>VMs (eine pro Zeile)</code> ein. Dies ist die Liste der VMs, die gesichert werden.</p>
-</div>
-<div class="button-def">
-    <strong>Restore / Klon</strong>
-    <p>Öffnet den Assistenten zum Wiederherstellen einer VM aus einem GhettoVCB-Backup oder zum Klonen einer bestehenden (ggf. laufenden) VM.</p>
-</div>
-<div class="button-def">
-    <strong>Job laden...</strong>
-    <p>Öffnet ein Datei-Dialogfenster, um eine <code>.json</code>-Datei zu laden. Stellt <strong>alle</strong> Einstellungen in der GUI (ESXi und Proxmox) aus dieser Datei wieder her.</p>
-</div>
-<div class="button-def">
-    <strong>Job speichern unter...</strong>
-    <p>Öffnet ein Datei-Dialogfenster, um <strong>alle</strong> aktuellen Einstellungen der GUI (ESXi und Proxmox) in einer <code>.json</code>-Datei auf Ihrem PC zu speichern.</p>
-</div>
-<div class="button-def">
-    <strong>Ghetto-Konfig. auf ESXi speichern</strong>
-    <p>Speichert <strong>nur</strong> die Einstellungen aus dem "GhettoVCB Konfiguration"-Block (Pfade, E-Mail, VM-Liste) in die Dateien <code>ghettoVCB.conf</code> und <code>vms_to_backup.txt</code> auf dem ESXi-Host im GhettoVCB-Pfad.</p>
-</div>
+  <!-- Footer -->
+  <footer style="text-align: center; padding: 30px; color: #666; font-size: 0.9em;">
+    <hr style="margin-bottom: 20px;"/>
+    <p>
+      GhettoGUI V8.7.8 – Bedienungsanleitung<br/>
+      Stand: 2026-02-09
+    </p>
+  </footer>
 
-<h3 id="esxi-installation">Installation & Aktionen (Rechte Seite)</h3>
-<div class="button-def">
-    <strong>Offizielles GhettoVCB installieren</strong>
-    <p>Öffnet einen Dialog, ob das GhettoVCB-Skript von GitHub oder von einer lokalen ZIP-Datei installiert werden soll. Installiert es in den angegebenen <code>GhettoVCB-Pfad</code>.</p>
-</div>
-<div class="button-def">
-    <strong>GhettoVCB Patch</strong>
-    <p>Installiert die modifizierte <code>ghettoVCB.sh</code>-Datei (von GitHub oder lokal), die für detaillierte E-Mail-Berichte (HTML) und verbesserte Fehlerbehandlung notwendig ist. Überschreibt die offizielle Datei.</p>
-</div>
-<div class="button-def">
-    <strong>E-Mail-Skript installieren</strong>
-    <p>Installiert das Python-Hilfsskript <code>sendmail.py</code> (von GitHub oder lokal) in den <code>GhettoVCB-Pfad</code>. Dieses Skript wird vom Patch benötigt, um die HTML-Berichte zu formatieren und zu senden.</p>
-</div>
-<div class="button-def">
-    <strong>SSH-Konsole /Cron /Del</strong>
-    <p>Öffnet das leistungsstarke Dual-Pane SSH-Konsolenfenster. Dieses Fenster bietet Zugriff auf erweiterte Funktionen wie Cron-Management, SSH-Key-Assistenten, Host-Verwaltung und mehr (siehe <a href="#ssh-konsole">unten</a>).</p>
-</div>
+</main>
 
-<h3 id="esxi-zeitplanung">Zeitplanung (ESXi Cron)</h3>
-<div class="button-def">
-    <strong>ESXi-Zeit</strong>
-    <p>Fragt die aktuelle Systemzeit (in UTC) vom ESXi-Host ab. Nützlich, da Cronjobs die Host-Zeit (UTC) und nicht Ihre lokale Zeit verwenden.</p>
-</div>
-<div class="button-def">
-    <strong>Zeitplan speichern</strong>
-    <p>Erstellt einen neuen Cronjob auf dem ESXi-Host (<code>/var/spool/cron/crontabs/root</code>). Der Job führt den ausgewählten Job-Typ (Backup, Replikation oder Restore/Klon) zur festgelegten Zeit und Wiederholung aus, basierend auf den aktuell in der GUI konfigurierten Einstellungen.</p>
-</div>
+<!-- Back to Top Button -->
+<button class="back-to-top" id="backToTop" onclick="scrollToTop()" aria-label="Nach oben">↑</button>
 
-<h3 id="esxi-email">E-Mail Benachrichtigung (ESXi)</h3>
-<div class="button-def">
-    <strong>Firewall-Check</strong>
-    <p>Konfiguriert die ESXi-Firewall. Öffnet den ausgehenden SMTP-Port (den Sie im Feld <code>SMTP-Port</code> angeben) und aktiviert die <code>sshClient</code>-Regel (nötig für die "Direkte Replikation").</p>
-</div>
-<div class="button-def">
-    <strong>Email-Test</strong>
-    <p>Speichert die Konfig., lädt eine Test-Nachricht auf den Host und versucht, diese über das <code>sendmail.py</code>-Skript mit den angegebenen SMTP-Daten zu versenden. Eine schnelle Methode, um die E-Mail-Einstellungen zu prüfen.</p>
-</div>
-<div class="button-def">
-    <strong>Email-Log</strong>
-    <p>Ruft die letzte GhettoVCB-Logdatei ab und filtert sie nach Zeilen, die "email" oder "sendmail" enthalten, um die Fehlersuche bei E-Mail-Problemen zu erleichtern.</p>
-</div>
-
-<h3 id="esxi-aktionen">Backup-Aktionen (ESXi)</h3>
-<div class="button-def">
-    <strong>GhettoVCB Backup starten</strong>
-    <p>Startet den GhettoVCB-Backup-Prozess auf dem ESXi-Host im Hintergrund. Aktiviert den automatischen Log-Abruf (alle 10 Sek.) im Log-Fenster.</p>
-</div>
-<div class="button-def">
-    <strong>Backup-Log abrufen</strong>
-    <p>Ruft die aktuellste Log-Datei (manuell oder geplant) manuell ab und zeigt sie im Log-Fenster an.</p>
-</div>
-<div class="button-def">
-    <strong>Backup abbrechen</strong>
-    <p>Versucht, den laufenden GhettoVCB-Prozess auf dem ESXi-Host zu beenden (zuerst sanft via <code>SIGTERM</code>, dann hart via <code>SIGKILL</code>) und räumt temporäre Dateien auf.</p>
-</div>
-<div class="button-def">
-    <strong>Backup-Ordner Inhalt</strong>
-    <p>Führt einen <code>ls -lR</code>-Befehl auf dem konfigurierten <code>Backup Volume</code> + <code>Unterordner</code> aus, um eine rekursive Liste aller vorhandenen Backup-Dateien und Ordner anzuzeigen.</p>
-</div>
-
-<hr>
-
-<h2 id="tab-proxmox">Tab: Proxmox Manager</h2>
-<p>Dieser Tab steuert alle Funktionen, die sich auf Proxmox VE (PVE) beziehen, hauptsächlich über die Proxmox API.</p>
-
-<div class="screenshot-placeholder">
-    <img src="Proxmox.png" alt="GhettoGUI Proxmox Manager Hauptfenster">
-</div>
-<h3 id="proxmox-verbindung">Verbindung</h3>
-<div class="button-def">
-    <strong>Verbinden (API)</strong>
-    <p>Stellt eine Verbindung zur Proxmox API (Port 8006) her und fragt nach dem Passwort. Baut gleichzeitig eine <strong>zusätzliche SSH-Verbindung</strong> zum selben Host auf (mit denselben Anmeldedaten), die für die Storage-Assistenten benötigt wird. Lädt nach Erfolg die Liste aller VMs und Container von allen Nodes im Cluster.</p>
-</div>
-
-<h3 id="proxmox-steuerung">Backup-Steuerung</h3>
-<div class="button-def">
-    <strong>"..." (bei Backup Storage)</strong>
-    <p>Öffnet einen Dialog, der alle über die API gefundenen Storage-Pools des Proxmox-Hosts auflistet.</p>
-</div>
-<div class="button-def">
-    <strong>Backup starten</strong>
-    <p>Startet sofort einen <code>vzdump</code>-Backup-Job (via API) für alle in der Liste angehakten VMs und Container. Der Fortschritt jedes Jobs wird live im "Proxmox Aktivitäts-Log" angezeigt.</p>
-</div>
-<div class="button-def">
-    <strong>VM Backup restore</strong>
-    <p>Startet einen Assistenten (via API), um ein Backup wiederherzustellen. Sie wählen ein Backup vom eingestellten <code>Backup Storage</code>, wählen einen beliebigen Ziel-Storage und geben eine neue, freie VM-ID an. Startet einen <code>qmrestore</code>-Task, dessen Fortschritt live im Log angezeigt wird.</p>
-</div>
-
-<h3 id="proxmox-storage">Storage Management</h3>
-<div class="button-def">
-    <strong>Neuen Speicher hinzufügen...</strong>
-    <p>Öffnet einen Assistenten, um den Typ des neuen Speichers auszuwählen (LVM, Verzeichnis, NFS, CIFS) und startet dann den entsprechenden Einrichtungs-Assistenten.</p>
-</div>
-<div class="button-def">
-    <strong>Backup-Speicher löschen...</strong>
-    <p><strong>(DESTRUKTIV!)</strong> Öffnet einen Dialog, um einen über die GUI erstellten Verzeichnis- oder LVM-basierten Speicher auszuwählen. Nach mehrfacher Warnung entfernt dieser Knopf den Speicher aus der Proxmox API, hängt das Laufwerk aus (<code>umount</code>), entfernt den <code>fstab</code>-Eintrag (falls Verzeichnis) und <strong>löscht das zugrundeliegende Logical Volume (LVM)</strong> via SSH.</p>
-</div>
-<div class="button-def">
-    <strong>NFS-Share als Backup-Speicher mounten...</strong>
-    <p>Ein Schnellzugriff, der direkt den Assistenten zum Hinzufügen eines NFS-Speichers startet, voreingestellt für Backup-Inhalte.</p>
-</div>
-
-<h3 id="proxmox-zeitplanung">Zeitplanung (Proxmox API)</h3>
-<div class="button-def">
-    <strong>Zeitplan in Proxmox speichern</strong>
-    <p>Erstellt einen neuen, geplanten Backup-Job direkt in Proxmox (via <code>POST /cluster/backup</code>). Dieser Job verwendet die in der GUI ausgewählten VMs, den Storage, die Zeit/Tage und die E-Mail-Adresse. Der Job ist danach in der Proxmox Web-GUI unter "Rechenzentrum -> Backup" sichtbar und kann dort weiter verwaltet werden.</p>
-</div>
-
-<hr>
-
-<h2 id="ssh-konsole">Fenster: SSH-Konsole & Assistenten</h2>
-<p>Dieses separate Fenster (geöffnet über den "SSH-Konsole"-Button im ESXi-Tab) bietet erweiterte Werkzeuge, hauptsächlich für ESXi.</p>
-
-<div class="screenshot-placeholder">
-    <img src="SSH-Konsole.png" alt="GhettoGUI SSH-Konsole Fenster">
-</div>
-<h3 id="ssh-assistenten">Einrichtungs-Assistenten</h3>
-<div class="button-def">
-    <strong>1. SSH-Schlüssel einrichten (Anleitung)</strong>
-    <p>Erstellt eine <code>.bat</code>-Datei auf Ihrem PC (in <code>C:\temp</code>), die Sie ausführen müssen. Diese Batch-Datei generiert ein SSH-Schlüsselpaar auf Ihrem PC und kopiert es (nach Passwortabfrage) auf den Quell- und Ziel-Host. Dies ist für die "Direkte Replikation" notwendig.</p>
-</div>
-<div class="button-def">
-    <strong>2. Berechtigungen setzen</strong>
-    <p>Führt (nach Bestätigung) die notwendigen <code>chmod</code>-Befehle auf dem Quell- und Ziel-Host aus, um die in Schritt 1 kopierten SSH-Schlüssel für den Host-zu-Host-Login nutzbar zu machen.</p>
-</div>
-<div class="button-def">
-    <strong>3. Verbindungstest durchführen</strong>
-    <p>Führt vom Quell-Host einen SSH-Befehl zum Ziel-Host aus, um zu testen, ob die passwortlose Verbindung aus Schritt 1 & 2 erfolgreich eingerichtet wurde.</p>
-</div>
-<div class="button-def">
-    <strong>Datei auf Host hochladen...</strong>
-    <p>Öffnet einen Datei-Dialog auf Ihrem PC, um eine Datei (z.B. ein VIB- oder ZIP-Paket) auszuwählen. Öffnet danach einen Datastore-Browser, um das Ziel auf dem ESXi-Host zu wählen. Lädt die Datei via SFTP hoch.</p>
-</div>
-<div class="button-def">
-    <strong>VIB / Plugin installieren...</strong>
-    <p>Öffnet einen Datastore-Browser, um eine zuvor hochgeladene <code>.vib</code>- oder <code>.zip</code>-Datei auf dem Host auszuwählen. Führt nach Bestätigung <code>esxcli software vib install</code> (oder <code>component apply</code> für ZIPs) aus und bietet einen optionalen Neustart an.</p>
-</div>
-
-<h3 id="ssh-management">Host & Job Management</h3>
-<div class="button-def">
-    <strong>Wartungsmodus STARTEN / BEENDEN</strong>
-    <p>Versetzt den verbundenen Quell-Host in den Wartungsmodus oder beendet diesen (via <code>esxcli</code>).</p>
-</div>
-<div class="button-def">
-    <strong>Host NEU STARTEN</strong>
-    <p><strong>(GEFÄHRLICH!)</strong> Startet den Quell-Host nach zwei eindringlichen Warnungen neu (via <code>reboot</code>-Befehl).</p>
-</div>
-<div class="button-def">
-    <strong>1. Verwaiste Jobs bereinigen</strong>
-    <p><strong>(DESTRUKTIV!)</strong> Ein "Notfall"-Knopf. Tötet alle laufenden GhettoVCB- und Replikations-Prozesse (<code>kill -9</code>), sucht nach allen GhettoGUI-Snapshots auf allen VMs und löscht diese (<code>snapshot.removeall</code>), sucht nach temporären Klon-Ordnern (<code>ghetto_clone_*</code>) und löscht diese, und räumt <code>/tmp</code> auf.</p>
-</div>
-<div class="button-def">
-    <strong>2. VMs-PowerCLI konsolidieren</strong>
-    <p>Sucht (via SSH) nach VMs, die auf Delta-Disks (Snapshots) laufen. Versucht dann (via <strong>PowerCLI</strong> von Ihrem PC aus), eine Festplatten-Konsolidierung für diese VMs zu starten, um verwaiste Snapshots aufzuräumen.</p>
-</div>
-<div class="button-def">
-    <strong>1. Schlüssel auf PC</strong>
-    <p>Erstellt ein Standard-SSH-Schlüsselpaar (<code>id_rsa</code> / <code>id_rsa.pub</code>) auf Ihrem lokalen PC im Ordner <code>C:\Users\IhrName\.ssh\</code>. Dies ist der Schlüssel, den WinSCP (für "Backup download") automatisch verwendet.</p>
-</div>
-<div class="button-def">
-    <strong>2. Schlüssel auf Host</strong>
-    <p>Nimmt den unter (1.) erstellten <strong>öffentlichen</strong> Schlüssel (<code>id_rsa.pub</code>) von Ihrem PC und fügt ihn zur <code>authorized_keys</code>-Datei auf dem ESXi-Host hinzu. Dies erlaubt Ihnen, sich per SFTP/WinSCP zu verbinden, ohne ein Passwort eingeben zu müssen.</p>
-</div>
-<div class="button-def">
-    <strong>USB-Mount.</strong>
-    <p>Startet einen Assistenten, der hilft, ein angeschlossenes USB-Laufwerk zu identifizieren, es mit einer GPT-Partitionstabelle zu versehen und als VMFS6-Datastore zu formatieren (<code>partedUtil</code>, <code>vmkfstools</code>).</p>
-</div>
-<div class="button-def">
-    <strong>USB Dismount</strong>
-    <p><strong>(DESTRUKTIV!)</strong> Startet einen Assistenten, um einen Datastore (typischerweise USB) auszuwählen. Hängt diesen aus (<code>unmount</code>) und <strong>löscht die Partitionstabelle</strong> vom Laufwerk, um es sicher entfernen zu können.</p>
-</div>
-<div class="button-def">
-    <strong>USB-Wipe</strong>
-    <p><strong>(EXTREM DESTRUKTIV!)</strong> Ein einfacher Assistent, der alle erkannten Laufwerke auflistet und nach Auswahl und Bestätigung die Partitionstabelle des gewählten Laufwerks komplett löscht (<code>partedUtil mklabel msdos</code>).</p>
-</div>
-
-<h3 id="ssh-cron">Geplante Tasks (Cron)</h3>
-<div class="button-def">
-    <strong>Alle Tasks anzeigen</strong>
-    <p>Listet den Inhalt der <code>crontab</code>-Datei des root-Benutzers auf dem Quell-Host auf und nummeriert die Zeilen.</p>
-</div>
-<div class="button-def">
-    <strong>Ausgewählten Task löschen</strong>
-    <p>Löscht die Zeile mit der im Textfeld angegebenen Nummer aus der <code>crontab</code>-Datei und lädt den Cron-Dienst neu.</p>
-</div>
-<div class="button-def">
-    <strong>Alle GhettoGUI Tasks löschen</strong>
-    <p>Durchsucht die <code>crontab</code>-Datei nach allen Zeilen, die den Kommentar <code># GhettoGUI -</code> enthalten, und löscht diese. Lädt den Cron-Dienst neu.</p>
-</div>
-<div class="button-def">
-    <strong>Cron Diagnose-Info abrufen</strong>
-    <p>Überprüft, ob der <code>crond</code>-Dienst läuft, und zeigt die letzten Log-Einträge aus <code>syslog.log</code> an, die sich auf "cron" beziehen, sowie das Ende der aktuellsten GhettoGUI-Logdatei.</p>
-</div>
+<script>
+  // Toggle Sidebar (Mobile)
+  function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+  }
+  
+  // Close sidebar when clicking a link (mobile)
+  document.querySelectorAll('.nav-menu a').forEach(link => {
+    link.addEventListener('click', () => {
+      if (window.innerWidth <= 900) {
+        document.getElementById('sidebar').classList.remove('open');
+      }
+    });
+  });
+  
+  // Back to Top Button
+  const backToTopBtn = document.getElementById('backToTop');
+  
+  window.addEventListener('scroll', () => {
+    if (window.scrollY > 300) {
+      backToTopBtn.classList.add('visible');
+    } else {
+      backToTopBtn.classList.remove('visible');
+    }
+  });
+  
+  function scrollToTop() {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  
+  // Highlight active section in navigation
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks = document.querySelectorAll('.nav-menu a');
+  
+  window.addEventListener('scroll', () => {
+    let current = '';
+    
+    sections.forEach(section => {
+      const sectionTop = section.offsetTop;
+      const sectionHeight = section.clientHeight;
+      
+      if (window.scrollY >= sectionTop - 100) {
+        current = section.getAttribute('id');
+      }
+    });
+    
+    navLinks.forEach(link => {
+      link.classList.remove('active');
+      if (link.getAttribute('href') === '#' + current) {
+        link.classList.add('active');
+      }
+    });
+  });
+</script>
 
 </body>
 </html>
