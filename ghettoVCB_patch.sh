@@ -7,7 +7,7 @@ export PATH
 # https://github.com/lamw/ghettoVCB
 # http://communities.vmware.com/docs/DOC-8760
 # Patched by AI for enhanced email notifications and robust root check
-# Use for GhettoGUI_V8.7.5 & sendmail 9.5  Christian Furrer, 07.02.2026
+# Use for GhettoGUI_V8.8.0 & sendmail 9.5  Christian Furrer, 09.02.2026
 # Fixer Pfad O.K
 # Erweitertes email Log
 
@@ -973,7 +973,7 @@ ghettoVCB() {
 
     # Log-Ausgabe (Alle anderen Zeilen bleiben erhalten)
     echo "Job-Konfiguration:" >> "${LOG_OUTPUT}"
-    echo "  - Typ: GhettoVCB Backup V8.7.5 v9.2" >> "${LOG_OUTPUT}"
+    echo "  - Typ: GhettoVCB Backup V8.8.0 v9.2" >> "${LOG_OUTPUT}"
     echo "  - Quell-Host: ${SOURCE_DISPLAY}" >> "${LOG_OUTPUT}"
     echo "  - Backup-Ziel: ${VM_BACKUP_VOLUME}" >> "${LOG_OUTPUT}"
     echo "  - Rotation: ${VM_BACKUP_ROTATION_COUNT}" >> "${LOG_OUTPUT}"
@@ -986,7 +986,7 @@ ghettoVCB() {
 # Füge direkt DANACH diesen Block ein:
     # Log configuration details
     echo "Job-Konfiguration:" >> "${LOG_OUTPUT}"
-    echo "  - Typ: GhettoVCB Backup V8.7.5 v9.2" >> "${LOG_OUTPUT}"
+    echo "  - Typ: GhettoVCB Backup V8.8.0 v9.2" >> "${LOG_OUTPUT}"
     echo "  - Backup-Ziel: ${VM_BACKUP_VOLUME}" >> "${LOG_OUTPUT}"
     echo "  - Rotation: ${VM_BACKUP_ROTATION_COUNT}" >> "${LOG_OUTPUT}"
     echo "  - Disk-Format: ${DISK_BACKUP_FORMAT}" >> "${LOG_OUTPUT}"
