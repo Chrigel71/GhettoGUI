@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# GhettoVCB-GUI 8.7.5 Sendmail (ESXi 6.0 - 8.0 Compatible)
+# GhettoVCB-GUI 8.8.0 Sendmail (ESXi 6.0 - 8.0 Compatible)
 # V9.5 - Fix: Reliable SMTP for Port 25 + Port 587 (STARTTLS) on ESXi6/ESXi8
 # Patch: Hardened OpenSSL/NC fallback for ESXi 6 email-log sending (keeps ESXi 8 behavior).
 #
