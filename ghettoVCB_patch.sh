@@ -9,7 +9,7 @@ export PATH
 # Patched by AI for enhanced email notifications and robust root check
 # Use for GhettoGUI_V8.8.0 & sendmail 9.5  Christian Furrer, 09.02.2026
 # Fixer Pfad O.K
-# Erweitertes email Log
+# Erweitertes email Log, sleep 60 sec.
 
 ##################################################################
 #                   User Definable Parameters
@@ -1415,7 +1415,7 @@ VM_NVRAM_FILE=$(grep "nvram" "${VMX_PATH}" | awk -F "\"" '{print $2}')
                                             sync
                                             LAST_SIZE_GB="${CUR_SIZE_GB}"
                                         fi
-                                        sleep 20
+                                        sleep 60
                                     done
 
                                     wait ${VMDK_PID}
