@@ -4665,9 +4665,36 @@ $buttonSaveGuiSettings.Add_Click({
     $saveFileDialog.Title = "Job speichern unter..."
     $saveFileDialog.Filter = "GhettoGUI Jobs (*.json)|*.json"
     $saveFileDialog.InitialDirectory = $Global:ScriptPath
-    $saveFileDialog.FileName = "$($Global:ESXiConnectedHostName)-Job.json"
+
+    # --- ANALYSE DER AUSWAHL ---
+    $suggestedFileName = ""
+    $selectedItem = $comboboxJobs.SelectedItem
+
+    if ($null -ne $selectedItem) {
+        # Da deine ComboBox Objekte enthält (wie im Schnipsel zu sehen):
+        # Wir versuchen zuerst den Dateinamen aus 'FullPath' zu bekommen
+        if ($selectedItem.FullPath) {
+            $suggestedFileName = [System.IO.Path]::GetFileName($selectedItem.FullPath)
+        } else {
+            # Fallback, falls FullPath nicht da ist, nehmen wir die Anzeige
+            $suggestedFileName = $selectedItem.ToString()
+        }
+    }
+
+    # --- DATEINAMEN SETZEN ---
+    if (-not [string]::IsNullOrWhiteSpace($suggestedFileName)) {
+        # Falls der Name noch kein .json hat, anhängen
+        if ($suggestedFileName -notlike "*.json") { $suggestedFileName += ".json" }
+        $saveFileDialog.FileName = $suggestedFileName
+    } else {
+        # Fallback auf IP, falls wirklich nichts ausgewählt ist
+        $saveFileDialog.FileName = "$($Global:ESXiConnectedHostName)-Job.json"
+    }
+
     if ($saveFileDialog.ShowDialog($form) -eq 'OK') {
         Save-HostGuiSettings -FilePath $saveFileDialog.FileName
+        # Liste aktualisieren
+        Populate-JobComboBox
     }
 })
 
@@ -4858,9 +4885,13 @@ function Show-GhettoSchedule {
         
         $interval = "Jede Woche"
         if ($line -match "% 2") { 
-            $interval = "Alle 2 Wochen" 
+            if ($line -match "-eq 0") {
+                $interval = "Alle 2 Wochen (Gerade KW)"
+            } else {
+                $interval = "Alle 2 Wochen (Ungerade KW)"
+            }
         } elseif ($line -match "-ge 1 -a .* -le 7") { 
-            $interval = "Monatlich (1.W)" 
+            $interval = "Monatlich (1.W)"
         } elseif ($line -match "-ge 8 -a .* -le 14") { 
             $interval = "Monatlich (2.W)" 
         } elseif ($line -match "-ge 15 -a .* -le 21") { 
