@@ -289,11 +289,11 @@ $labelSubfolder = New-Object System.Windows.Forms.Label; $labelSubfolder.Text = 
 $textboxSubfolder = New-Object System.Windows.Forms.TextBox; $textboxSubfolder.Location = New-Object System.Drawing.Point($gcControlX, $gcOffsetY); $textboxSubfolder.Size = New-Object System.Drawing.Size($gcControlWidthForBrowse, 20);
 $gcOffsetY += 30
 $labelRotation = New-Object System.Windows.Forms.Label; $labelRotation.Text = "Rotation Count:"; $labelRotation.Location = New-Object System.Drawing.Point($gcOffsetX, ($gcOffsetY + 3)); $labelRotation.AutoSize = $true
-$textboxRotation = New-Object System.Windows.Forms.TextBox; $textboxRotation.Location = New-Object System.Drawing.Point($gcControlX, $gcOffsetY); $textboxRotation.Size = New-Object System.Drawing.Size(50, 20); $textboxRotation.Text = "3"
+$textboxRotation = New-Object System.Windows.Forms.TextBox; $textboxRotation.Location = New-Object System.Drawing.Point($gcControlX, $gcOffsetY); $textboxRotation.Size = New-Object System.Drawing.Size(30, 20); $textboxRotation.Text = "3"
 
 # --- NEU: Checkbox für festen Backup-Pfad (rechts daneben platziert) ---
 $checkboxFixedBackupDir = New-Object System.Windows.Forms.CheckBox
-$checkboxFixedBackupDir.Text = "Festes Backup-Ziel"
+$checkboxFixedBackupDir.Text = "Fixed-Ziel"
 # Position berechnen: Rechts neben der Textbox mit etwas Abstand
 $checkboxX = $textboxRotation.Location.X + $textboxRotation.Width + 15
 $checkboxFixedBackupDir.Location = New-Object System.Drawing.Point($checkboxX, $gcOffsetY)
@@ -301,6 +301,12 @@ $checkboxFixedBackupDir.AutoSize = $true
 
 # Tooltip für eine bessere Erklärung hinzufügen
 $toolTip.SetToolTip($checkboxFixedBackupDir, "Wenn aktiviert, wird das Backup immer in denselben Ordner geschrieben und die alte Sicherung überschrieben (ohne Datums-Unterordner).")
+
+# Sleeplog
+$textboxsleeplog = New-Object System.Windows.Forms.TextBox; $textboxsleeplog.Location = New-Object System.Drawing.Point(($checkboxFixedBackupDir.Right - 20), $gcOffsetY); $textboxsleeplog.Size = New-Object System.Drawing.Size(30, 20); $textboxsleeplog.Text = "60"
+# Tooltip für eine bessere Erklärung hinzufügen
+$toolTip.SetToolTip($textboxsleeplog, "Aktualisierungs Zeit für das Log, Standart ist 60 Sec.")
+$labelsleeplog = New-Object System.Windows.Forms.Label; $labelsleeplog.Text = "SleepLog"; $labelsleeplog.Location = New-Object System.Drawing.Point(($textboxsleeplog.Right + 5), $gcOffsetY);; $labelsleeplog.AutoSize = $true
 
 # NEU: Event-Handler, um die Rotations-Textbox zu deaktivieren, wenn ein festes Ziel gewählt wird.
 $checkboxFixedBackupDir.Add_CheckedChanged({
@@ -346,7 +352,6 @@ $buttonDownloadBackup.Location = New-Object System.Drawing.Point(255, 176)
 $buttonDownloadBackup.ForeColor = [System.Drawing.Color]::DarkSlateBlue
 $buttonDownloadBackup.Font = New-Object System.Drawing.Font("Segoe UI", 8, [System.Drawing.FontStyle]::Bold)
 
-
 # --- NEUER BUTTON FÜR DIREKTE REPLIKATION ---
 $buttonDirectReplicate = New-Object System.Windows.Forms.Button
 $buttonDirectReplicate.Text = "Direkte Replic."
@@ -376,7 +381,7 @@ $buttonRestore.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Draw
 $gcOffsetY += $buttonLoadVms.Height + 5
 $checkedListBoxVms = New-Object System.Windows.Forms.CheckedListBox; $checkedListBoxVms.DisplayMember = "DisplayName"; $checkedListBoxVms.Location = New-Object System.Drawing.Point($gcOffsetX, $gcOffsetY); $checkedListBoxVms.Size = New-Object System.Drawing.Size(($groupGhettoConfig.Width - (2 * $gcOffsetX)), 80); $checkedListBoxVms.CheckOnClick = $true
 
-$groupGhettoConfig.Controls.AddRange(@($labelGhettoPath, $checkboxDisablePunch, $buttonDownloadBackup, $textboxGhettoPath, $checkboxFixedBackupDir, $buttonBrowseGhettoPath, $labelBackupVol, $textboxBackupVol, $buttonBrowseBackupVol, $labelSubfolder, $textboxSubfolder, $labelRotation, $textboxRotation, $labelDiskFormat, $comboboxDiskFormat, $checkboxSnapMem, $checkboxSnapQuiesce, $buttonReplicate, $buttonDirectReplicate, $labelVmList, $textboxVmList, $buttonLoadVms, $buttonApplyVms, $buttonRestore, $checkedListBoxVms))
+$groupGhettoConfig.Controls.AddRange(@($labelGhettoPath, $checkboxDisablePunch, $labelsleeplog, $textboxsleeplog, $buttonDownloadBackup, $textboxGhettoPath, $checkboxFixedBackupDir, $buttonBrowseGhettoPath, $labelBackupVol, $textboxBackupVol, $buttonBrowseBackupVol, $labelSubfolder, $textboxSubfolder, $labelRotation, $textboxRotation, $labelDiskFormat, $comboboxDiskFormat, $checkboxSnapMem, $checkboxSnapQuiesce, $buttonReplicate, $buttonDirectReplicate, $labelVmList, $textboxVmList, $buttonLoadVms, $buttonApplyVms, $buttonRestore, $checkedListBoxVms))
 
 $currentY_Col1 = $groupGhettoConfig.Location.Y + $groupGhettoConfig.Height + 10
 
@@ -5081,12 +5086,17 @@ $buttonSaveSchedule.Add_Click({
                 $dateForLogCmd = '$(date +\%F)'
                 $remoteLogFile = "$ghettoPath/logs/backup-run-$jobId-$dateForLogCmd.log"
                 $useFixedDirValue = if ($checkboxFixedBackupDir.Checked) { 1 } else { 0 }; 
+				$valSleepLog = $textboxsleeplog.Text.Trim()
+                if (-not ($valSleepLog -match '^\d+$')) { throw "SleepLog muss eine Zahl in Sekunden sein." }
+                if ([int]$valSleepLog -lt 1 -or [int]$valSleepLog -gt 9999) { throw "SleepLog muss zwischen 1 und 9999 Sekunden liegen." }
+
                 
                 $confLines = @( 
                  "USE_FIXED_BACKUP_DIR=$useFixedDirValue", 
                 "VM_BACKUP_VOLUME=`"$($textboxBackupVol.Text.TrimEnd('/'))/$($textboxSubfolder.Text.Trim('/'))`"", 
                 "VM_BACKUP_ROTATION_COUNT=$($textboxRotation.Text.Trim())", 
-                "DISK_BACKUP_FORMAT=$($comboboxDiskFormat.SelectedItem.ToString().Trim())", 
+                "LOG_UPDATE_INTERVAL=$($valSleepLog.Trim())",
+				"DISK_BACKUP_FORMAT=$($comboboxDiskFormat.SelectedItem.ToString().Trim())", 
                 "VM_SNAPSHOT_MEMORY=$(if ($checkboxSnapMem.Checked) { 1 } else { 0 })", 
                 "VM_SNAPSHOT_QUIESCE=$(if ($checkboxSnapQuiesce.Checked) { 1 } else { 0 })", 
                 "EMAIL_LOG=$(if ($checkboxEmailLog.Checked) { 1 } else { 0 })", 
@@ -5099,6 +5109,7 @@ $buttonSaveSchedule.Add_Click({
                 "EMAIL_TO=`"$($textboxEmailTo.Text.Trim())`"", 
                 "EMAIL_SUBJECT=`"$($textboxEmailSubject.Text.Replace('%h', $Global:ESXiConnectedHostName))`"", 
                 "EMAIL_BIN=`"$ghettoPath/sendmail`"" 
+
             ); 
 
                 $ghettoConfContent = ($confLines -join "`n") + "`n"; $unixVmListText = ($textboxVmList.Text.Split([string[]]@("`r`n","`r","`n"), [System.StringSplitOptions]::RemoveEmptyEntries) | ForEach-Object { $_.Trim() }) -join "`n"; if (-not [string]::IsNullOrEmpty($unixVmListText)) { $unixVmListText += "`n" }
@@ -6896,11 +6907,15 @@ function Save-GhettoVCBConfig {
     $emailBinPath = "'$ghettoPath/sendmail'"
 
 	$useFixedDirValue = if ($checkboxFixedBackupDir.Checked) { 1 } else { 0 }
+	$valSleepLog = $textboxsleeplog.Text.Trim()
+    if (-not ($valSleepLog -match '^\d+$')) { Write-GuiLog "Fehler: SleepLog muss eine Zahl in Sekunden sein."; return $false }
+    if ([int]$valSleepLog -lt 1 -or [int]$valSleepLog -gt 9999) { Write-GuiLog "Fehler: SleepLog muss zwischen 1 und 9999 Sekunden liegen."; return $false }
+
 	$confLines = @(
 		"USE_FIXED_BACKUP_DIR=$useFixedDirValue",
         "VM_BACKUP_VOLUME=""$fullBackupPath""", "VM_BACKUP_ROTATION_COUNT=$rotation", "DISK_BACKUP_FORMAT=""$diskFormat""",
         # KORREKTUR: Die korrekten Variablennamen für die .conf-Datei werden hier verwendet
-        "VM_SNAPSHOT_MEMORY=$snapMem", "VM_SNAPSHOT_QUIESCE=$snapQuiesce",
+        "VM_SNAPSHOT_MEMORY=$snapMem", "VM_SNAPSHOT_QUIESCE=$snapQuiesce", "USE_FIXED_BACKUP_DIR=$useFixedDirValue",
         "POWER_VM_DOWN_BEFORE_BACKUP=0", "ENABLE_HARD_POWER_OFF=0", "ITER_TO_WAIT_SHUTDOWN=3", "POWER_DOWN_TIMEOUT=5", "SNAPSHOT_TIMEOUT=15", "ENABLE_COMPRESSION=0",
         "ALLOW_VMS_WITH_SNAPSHOTS_TO_BE_BACKEDUP=0", "VMDK_FILES_TO_SKIP=""""",
         "EMAIL_LOG=$emailLog", "EMAIL_SERVER=""$emailServer""", "EMAIL_SERVER_PORT=""$emailPort""",
@@ -6934,7 +6949,7 @@ function Save-GhettoVCBConfig {
 
 
 # =====================================================================================
-# --- START BLOCK (Speicher-Funktion V7.3 - Mit Display Name) ---
+# --- START BLOCK (Speicher-Funktion V7.3 - Mit Display Name) --- savegui savejob
 # =====================================================================================
 
 function Save-HostGuiSettings {
@@ -6965,6 +6980,8 @@ function Save-HostGuiSettings {
         SnapMem             = $checkboxSnapMem.Checked
         SnapQuiesce         = $checkboxSnapQuiesce.Checked
         VmList              = $textboxVmList.Text
+		SleepLog            = $textboxsleeplog.Text
+
 
         # Zeitplanung
         ScheduleHour        = $textboxScheduleHour.Text
@@ -7051,6 +7068,8 @@ function Load-HostGuiSettings {
         $checkboxSnapMem.Checked    = $settings.SnapMem
         $checkboxSnapQuiesce.Checked = $settings.SnapQuiesce
         $textboxVmList.Text         = $settings.VmList
+		
+		if ($settings.SleepLog) { $textboxsleeplog.Text = $settings.SleepLog }
 
         # Lade Zeitplanung
         $textboxScheduleHour.Text   = $settings.ScheduleHour

@@ -7,9 +7,9 @@ export PATH
 # https://github.com/lamw/ghettoVCB
 # http://communities.vmware.com/docs/DOC-8760
 # Patched by AI for enhanced email notifications and robust root check
-# Use for GhettoGUI_V8.8.0 & sendmail 9.5  Christian Furrer, 09.02.2026
+# Use for GhettoGUI_V8.8.0 & sendmail 9.9  Christian Furrer, 10.02.2026
 # Fixer Pfad O.K
-# Erweitertes email Log, sleep 60 sec.
+# Erweitertes email Log, sleep 60 sec. bei zeile 1448
 
 ##################################################################
 #                   User Definable Parameters
@@ -65,6 +65,10 @@ SNAPSHOT_TIMEOUT=15
 
 # Allow VMs with snapshots to be backed up, this WILL CONSOLIDATE EXISTING SNAPSHOTS!
 ALLOW_VMS_WITH_SNAPSHOTS_TO_BE_BACKEDUP=0
+
+# Default log sleep
+DEFAULT_LOG_UPDATE_INTERVAL="60"
+
 
 ##########################################################
 # NON-PERSISTENT NFS-BACKUP ONLY
@@ -472,6 +476,8 @@ useDefaultConfigurations() {
     NFS_IO_HACK_LOOP_MAX="${DEFAULT_NFS_IO_HACK_LOOP_MAX}"
     NFS_IO_HACK_SLEEP_TIMER="${DEFAULT_NFS_IO_HACK_SLEEP_TIMER}"
     NFS_BACKUP_DELAY="${DEFAULT_NFS_BACKUP_DELAY}"
+	LOG_UPDATE_INTERVAL="${DEFAULT_LOG_UPDATE_INTERVAL}"
+
 }
 
 reConfigureGhettoVCBConfiguration() {
@@ -826,9 +832,10 @@ storageInfo() {
     SECTION=$1
 
     #SOURCE DATASTORE
-    SRC_DATASTORE_CAPACITY=$($VMWARE_CMD hostsvc/datastore/info "${VMFS_VOLUME}" | grep -i "capacity" | awk '{print $3}' | sed 's/,//g')
-    SRC_DATASTORE_FREE=$($VMWARE_CMD hostsvc/datastore/info "${VMFS_VOLUME}" | grep -i "freespace" | awk '{print $3}' | sed 's/,//g')
-    SRC_DATASTORE_BLOCKSIZE=$($VMWARE_CMD hostsvc/datastore/info "${VMFS_VOLUME}" | grep -i blockSizeMb | awk '{print $3}' | sed 's/,//g')
+    SRC_DATASTORE_CAPACITY=$($VMWARE_CMD hostsvc/datastore/info "${VMFS_VOLUME}" 2>/dev/null | grep -i "capacity" | awk '{print $3}' | sed 's/,//g')
+    SRC_DATASTORE_FREE=$($VMWARE_CMD hostsvc/datastore/info "${VMFS_VOLUME}" 2>/dev/null | grep -i "freespace" | awk '{print $3}' | sed 's/,//g')
+    SRC_DATASTORE_BLOCKSIZE=$($VMWARE_CMD hostsvc/datastore/info "${VMFS_VOLUME}" 2>/dev/null | grep -i blockSizeMb | awk '{print $3}' | sed 's/,//g')
+
     if [[ -z ${SRC_DATASTORE_BLOCKSIZE} ]] ; then
         SRC_DATASTORE_BLOCKSIZE="NA"
         SRC_DATASTORE_MAX_FILE_SIZE="NA"
@@ -846,10 +853,11 @@ storageInfo() {
     #DESTINATION DATASTORE
     DST_VOL_1=$(echo "${VM_BACKUP_VOLUME#/*/*/}")
     DST_DATASTORE=$(echo "${DST_VOL_1%%/*}")
-    DST_DATASTORE_CAPACITY=$($VMWARE_CMD hostsvc/datastore/info "${DST_DATASTORE}" | grep -i "capacity" | awk '{print $3}' | sed 's/,//g')
-    DST_DATASTORE_FREE=$($VMWARE_CMD hostsvc/datastore/info "${DST_DATASTORE}" | grep -i "freespace" | awk '{print $3}' | sed 's/,//g')
-    DST_DATASTORE_BLOCKSIZE=$($VMWARE_CMD hostsvc/datastore/info "${DST_DATASTORE}" | grep -i blockSizeMb | awk '{print $3}' | sed 's/,//g')
-
+    DST_DATASTORE_CAPACITY=$($VMWARE_CMD hostsvc/datastore/info "${DST_DATASTORE}" 2>/dev/null | grep -i "capacity" | awk '{print $3}' | sed 's/,//g')
+    DST_DATASTORE_FREE=$($VMWARE_CMD hostsvc/datastore/info "${DST_DATASTORE}" 2>/dev/null | grep -i "freespace" | awk '{print $3}' | sed 's/,//g')
+    DST_DATASTORE_BLOCKSIZE=$($VMWARE_CMD hostsvc/datastore/info "${DST_DATASTORE}" 2>/dev/null | grep -i blockSizeMb | awk '{print $3}' | sed 's/,//g')
+	
+	
     if [[ -z ${DST_DATASTORE_BLOCKSIZE} ]] ; then
         DST_DATASTORE_BLOCKSIZE="NA"
         DST_DATASTORE_MAX_FILE_SIZE="NA"
@@ -1388,9 +1396,34 @@ VM_NVRAM_FILE=$(grep "nvram" "${VMX_PATH}" | awk -F "\"" '{print $2}')
                                     [[ -z "$ADAPTERTYPE_DEPRECATED" ]] && ADAPTER_FORMAT=$(grep -i "ddb.adapterType" "${SOURCE_VMDK}" | awk -F "=" '{print $2}' | sed -e 's/^[[:blank:]]*//;s/[[:blank:]]*$//;s/"//g')
                                     [[ -n "${ADAPTER_FORMAT}" ]] && ADAPTER_FORMAT="-a ${ADAPTER_FORMAT}"
 
-                                    # Quellgrösse für Prozentberechnung ermitteln
+                                                                        # Quellgrösse für Prozentberechnung ermitteln
                                     SRC_SIZE_SECTORS=$(grep "RW" "${SOURCE_VMDK}" | grep "VMFS" | awk '{print $2}')
                                     TOTAL_GB=$(echo "${SRC_SIZE_SECTORS}" | awk '{printf "%.1f", $1*512/1024/1024/1024}')
+
+                                    # ------------------------------------------------------------
+                                    # FIX (Lifelog Progress-%): Nenner muss VM-GESAMTGROESSE sein (Summe aller Quell-VMDKs)
+                                    # Wird nur 1x pro VM berechnet und dann wiederverwendet.
+                                    # ------------------------------------------------------------
+                                    if [[ -z "${TOTAL_GB_VM}" ]]; then
+                                        TOTAL_SRC_SECTORS_VM=0
+                                        for jj in ${VMDKS}; do
+                                            VV=$(echo "${jj}" | awk -F "###" '{print $1}')
+
+                                            echo "${VV}" | grep "^/vmfs/volumes" >/dev/null 2>&1
+                                            if [[ $? -eq 0 ]]; then
+                                                SRC_TMP="${VV}"
+                                            else
+                                                SRC_TMP="${VMX_DIR}/${VV}"
+                                            fi
+
+                                            # Skip physical RDMs
+                                            grep "vmfsPassthroughRawDeviceMap" "${SRC_TMP}" >/dev/null 2>&1 && continue
+
+                                            SECT=$(grep "RW" "${SRC_TMP}" | grep "VMFS" | awk '{print $2}' | head -n 1)
+                                            [[ -n "${SECT}" ]] && TOTAL_SRC_SECTORS_VM=$((TOTAL_SRC_SECTORS_VM + SECT))
+                                        done
+                                        TOTAL_GB_VM=$(echo "${TOTAL_SRC_SECTORS_VM}" | awk '{printf "%.1f", $1*512/1024/1024/1024}')
+                                    fi
 
                                     # Start-Zeitstempel für Geschwindigkeitsmessung
                                     CLONE_START_SEC=$(date +%s)
@@ -1398,6 +1431,9 @@ VM_NVRAM_FILE=$(grep "nvram" "${VMX_PATH}" | awk -F "\"" '{print $2}')
                                     sync
 
                                     # vmkfstools im Hintergrund starten
+                                    # FIX (Average Speed): Startgroesse des VM_BACKUP_DIR merken, um Delta fuer diesen Clone zu berechnen
+                                    START_SIZE_K=$(du -s "${VM_BACKUP_DIR}" | awk '{print $1}')
+
                                     eval ${VMKFSTOOLS_CMD} -i '"${SOURCE_VMDK}"' ${ADAPTER_FORMAT} ${FORMAT_OPTION} '"${DESTINATION_VMDK}"' > "${VMDK_OUTPUT}" 2>&1 &
                                     VMDK_PID=$!
 
@@ -1408,27 +1444,37 @@ VM_NVRAM_FILE=$(grep "nvram" "${VMX_PATH}" | awk -F "\"" '{print $2}')
                                         # 'du -s' ist hier die zuverlässigste Methode
                                         CUR_SIZE_K=$(du -s "${VM_BACKUP_DIR}" | awk '{print $1}')
                                         CUR_SIZE_GB=$(echo "${CUR_SIZE_K}" | awk '{printf "%.2f", $1/1024/1024}')
-                                        CUR_PCT=$(echo "${CUR_SIZE_GB} ${TOTAL_GB}" | awk '{if ($2>0.1) printf "%.0f", ($1/$2)*100; else print "0"}')
-                                        
+
+                                        # FIX (Progress-%): Nenner = VM-Gesamtgroesse, nicht einzelne VMDK
+                                        CUR_PCT=$(echo "${CUR_SIZE_GB} ${TOTAL_GB_VM}" | awk '{if ($2>0.1) printf "%.0f", ($1/$2)*100; else print "0"}')
+
                                         if [[ "${CUR_SIZE_GB}" != "${LAST_SIZE_GB}" ]]; then
                                             echo -e "$(date +%H:%M:%S): Progress -> ${CUR_SIZE_GB} GB (${CUR_PCT}%) written..." >> "${LOG_OUTPUT}"
                                             sync
                                             LAST_SIZE_GB="${CUR_SIZE_GB}"
                                         fi
-                                        sleep 60
-                                    done
+                                        # sleep 60 # Sleeptime in sec. Grössere Zahl für kleineres Log
+										# Sleep-Intervall für Progress-Log (Default 60s, GUI/Config kann überschreiben)
+                                        if [[ -z "${LOG_UPDATE_INTERVAL}" ]] || ! echo "${LOG_UPDATE_INTERVAL}" | grep -Eq '^[0-9]+$'; then
+                                            LOG_UPDATE_INTERVAL=60
+                                        fi
+                                        sleep "${LOG_UPDATE_INTERVAL}"
+    
+									done
 
                                     wait ${VMDK_PID}
                                     VMDK_EXIT_CODE=$?
-                                    
+
                                     # End-Zeitstempel und Speed-Berechnung
                                     CLONE_END_SEC=$(date +%s)
                                     CLONE_DURATION=$((CLONE_END_SEC - CLONE_START_SEC))
                                     [[ ${CLONE_DURATION} -lt 1 ]] && CLONE_DURATION=1
-                                    
-                                    # Finale Größe des Verzeichnisses für Speed-Check
+
+                                    # FIX (Average Speed): Delta (nur dieser Clone) statt Gesamtdir / Disk-Zeit
                                     FINAL_SIZE_K=$(du -s "${VM_BACKUP_DIR}" | awk '{print $1}')
-                                    AVG_SPEED=$(echo "${FINAL_SIZE_K} ${CLONE_DURATION}" | awk '{printf "%.1f", ($1/$2)/1024}')
+                                    DELTA_K=$((FINAL_SIZE_K - START_SIZE_K))
+                                    [[ ${DELTA_K} -lt 0 ]] && DELTA_K=0
+                                    AVG_SPEED=$(echo "${DELTA_K} ${CLONE_DURATION}" | awk '{printf "%.1f", ($1/$2)/1024}')
 
                                     echo -e "$(date +%H:%M:%S): Finished cloning disk. Average Speed: ${AVG_SPEED} MB/s" >> "${LOG_OUTPUT}"
                                     sync
@@ -1438,9 +1484,10 @@ VM_NVRAM_FILE=$(grep "nvram" "${VMX_PATH}" | awk -F "\"" '{print $2}')
                                         cat "${VMDK_OUTPUT}" >> "${LOG_OUTPUT}"
                                         VM_VMDK_FAILED=1
                                     fi
-                                    
+
                                     echo >> "${LOG_OUTPUT}"
                                     rm -f "${VMDK_OUTPUT}"
+
                                 fi
                             else
                                 logger "info" "WARNING: A physical RDM \"${SOURCE_VMDK}\" was found for ${VM_NAME}, which will not be backed up"
