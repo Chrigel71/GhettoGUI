@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>GhettoGUI V8.7.8 – Bedienungsanleitung (Illustriert)</title>
+  <title>GhettoGUI V8.8.1 – Bedienungsanleitung (Illustriert)</title>
   <style>
     :root {
       --primary-color: #2c3e50;
@@ -553,8 +553,75 @@
   <section id="cron">
     <h2>⏰ Cron / Zeitpläne</h2>
     <p>
-      GhettoGUI kann Cron-Jobs auf dem ESXi hostseitig anlegen/ändern (Button <strong>„Zeitplan erstellen / Zeitplan anzeigen"</strong>).
+      GhettoGUI kann Cron-Jobs auf dem ESXi hostseitig anlegen/ändern (Button <strong>„SSH-Konsole /Cron /Del"</strong>).
     </p>
+	
+	<h2>2. Zeitplan-Verwaltung (ESXi Cron)</h2>
+    <p>Die Zeitplan-Anzeige wurde grundlegend überarbeitet, um alle Job-Typen und Intervalle exakt zu visualisieren.</p>
+
+    <h3>2.1 Job-Typ Erkennung</h3>
+    <p>Im Zeitplan-Popup werden Jobs nun anhand ihrer Signaturen (Kommentare und Dateinamen) kategorisiert:</p>
+    <table class="cron-table">
+        <thead>
+            <tr>
+                <th>Symbol</th>
+                <th>Typ</th>
+                <th>Beschreibung</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>💾</td>
+                <td><strong>Backup</strong></td>
+                <td>Standard VM-Sicherung (Voll-Backup).</td>
+            </tr>
+            <tr>
+                <td>🔄</td>
+                <td><strong>Replikation</strong></td>
+                <td>Host-to-Host Spiegelung von virtuellen Maschinen.</td>
+            </tr>
+            <tr>
+                <td>⏪</td>
+                <td><strong>Restore</strong></td>
+                <td>Geplante Wiederherstellungen aus bestehenden Backups.</td>
+            </tr>
+            <tr>
+                <td>👥</td>
+                <td><strong>Multi-Klon</strong></td>
+                <td>Gleichzeitiges Klonen mehrerer VMs auf Ziel-Datastores.</td>
+            </tr>
+            <tr>
+                <td>👤</td>
+                <td><strong>Single-Klon</strong></td>
+                <td>Gezielter Klon einer einzelnen Maschine.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h3>2.2 Präzision der 2-Wochen-Logik</h3>
+    <p>Für versetzte Backup-Strategien nutzt GhettoGUI die Kalenderwochen-Modulo-Berechnung:</p>
+    <ul>
+        <li><span class="highlight">Gerade KW:</span> Ausführung nur in Wochen wie 2, 4, 6... (Anzeige: „Alle 2 Wochen (Gerade KW)“).</li>
+        <li><span class="highlight">Ungerade KW:</span> Ausführung nur in Wochen wie 1, 3, 5... (Anzeige: „Alle 2 Wochen (Ungerade KW)“).</li>
+    </ul>
+
+    <h2>3. Monitoring & Troubleshooting</h2>
+    <div class="feature-grid">
+        <div class="feature-card">
+            <span class="status-tag">Live</span>
+            <h3>Log-Analyse</h3>
+            <p>Das Echtzeit-Logfenster überwacht jeden Schritt von <code>ghettoVCB</code>. Besonders bei großen VMs (z.B. 30 TB) ist hier die Überwachung der Snapshot-Phase und der VMDK-Übertragung entscheidend.</p>
+        </div>
+        <div class="feature-card">
+            <span class="status-tag">Security</span>
+            <h3>Ghetto-Assassin</h3>
+            <p>Sollte ein Job hängen bleiben, beendet dieses Tool sicher die verwaisten Prozesse auf dem ESXi und räumt temporäre Dateien auf, um den Datastore-Lock aufzuheben.</p>
+        </div>
+    </div>
+
+    <div class="warning-box">
+        <strong>Achtung bei Groß-VMs:</strong> Bei der Sicherung von 30 TB VMs sollte sichergestellt sein, dass die <code>Retention</code> (Vorhaltezeit) den verfügbaren Speicherplatz auf dem Ziel-NFS/Datastore nicht überschreitet. Ein einzelnes Backup dieser Größe benötigt bei 1 GbE ca. 70-80 Stunden – 10 GbE wird dringend empfohlen.
+    </div>
     
     <h3>Unterstützte Intervalle</h3>
     <ul>
