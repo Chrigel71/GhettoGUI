@@ -528,24 +528,6 @@ findVMDK() {
     #fi
 }
 
-
-# --- NEW: Resolve VMX VMDK path (relative, absolute, or "[datastore] path") ---
-resolve_vmdk_path() {
-    RAW="$1"
-    # Case 1: absolute path
-    echo "${RAW}" | grep -q "^/" && { echo "${RAW}"; return; }
-    # Case 2: VMware datastore format "[datastore] path/file.vmdk"
-    if echo "${RAW}" | grep -qE '^\[[^]]+\] '; then
-        DS=$(echo "${RAW}" | sed -n 's/^\[\([^]]*\)\] .*/\1/p')
-        RP=$(echo "${RAW}" | sed -n 's/^\[[^]]*\] \(.*\)$/\1/p')
-        echo "/vmfs/volumes/${DS}/${RP}"
-        return
-    fi
-    # Case 3: relative path (relative to VMX_DIR)
-    echo "${VMX_DIR}/${RAW}"
-}
-# --- END NEW ---
-
 getVMDKs() {
     #get all VMDKs listed in .vmx file
     VMDKS_FOUND=$(grep -iE '(^scsi|^ide|^sata|^nvme)' "${VMX_PATH}" | grep -i fileName | awk -F " " '{print $1}')
@@ -571,7 +553,6 @@ getVMDKs() {
                 #if we find the device type is of scsi-disk, then proceed
                 if [[ $? -eq 0 ]]; then
                     DISK=$(grep -i "^${SCSI_ID}.fileName" "${VMX_PATH}" | awk -F "\"" '{print $2}')
-                    DISK=$(resolve_vmdk_path "${DISK}")
                     echo "${DISK}" | grep "\/vmfs\/volumes" > /dev/null 2>&1
 
                     if [[ $? -eq 0 ]]; then
@@ -591,7 +572,6 @@ getVMDKs() {
 
                     if [[ $? -eq 0 ]]; then
                         DISK=$(grep -i "^${SCSI_ID}.fileName" "${VMX_PATH}" | awk -F "\"" '{print $2}')
-                        DISK=$(resolve_vmdk_path "${DISK}")
                         echo "${DISK}" | grep "\/vmfs\/volumes" > /dev/null 2>&1
                         if [[ $? -eq 0 ]]; then
                             DISK_SIZE_IN_SECTORS=$(cat "${DISK}" | grep "VMFS" | grep ".vmdk" | awk '{print $2}')
@@ -607,7 +587,6 @@ getVMDKs() {
             else
                 #independent disks are not affected by snapshots, hence they can not be backed up
                 DISK=$(grep -i "^${SCSI_ID}.fileName" "${VMX_PATH}" | awk -F "\"" '{print $2}')
-                DISK=$(resolve_vmdk_path "${DISK}")
                 echo "${DISK}" | grep "\/vmfs\/volumes" > /dev/null 2>&1
                 if [[ $? -eq 0 ]]; then
                     DISK_SIZE_IN_SECTORS=$(cat "${DISK}" | grep "VMFS" | grep ".vmdk" | awk '{print $2}')
