@@ -569,29 +569,45 @@ def _smtp_starttls_socket_send(subject, html_body, to_csv, from_addr, display_na
         if _code(rep) != 250:
             raise RuntimeError("EHLO/HELO failed: %r" % rep)
 
-    # STARTTLS
-    _send(s, "STARTTLS\r\n")
-    rep = _recv_reply(s)
-    if _code(rep) != 220:
-        raise RuntimeError("STARTTLS rejected: %r" % rep)
-
-    # Wrap socket with TLS, disable verification (ESXi often lacks CA chain)
+    # STARTTLS (optional)
+    # Some SMTP relays on port 587 do AUTH without advertising STARTTLS.
+    # If STARTTLS is not advertised, continue in plain mode (minimal fallback).
+    caps = rep
     try:
-        ctx = _ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = _ssl.CERT_NONE
-        s = ctx.wrap_socket(s, server_hostname=host)
+        if not isinstance(caps, (bytes, bytearray)):
+            caps = str(caps).encode("utf-8")
     except Exception:
-        s = _ssl.wrap_socket(s, cert_reqs=_ssl.CERT_NONE)
+        caps = b""
+    caps_upper = caps.upper() if isinstance(caps, (bytes, bytearray)) else b""
 
-    # EHLO again after TLS per RFC
-    _send(s, "EHLO %s\r\n" % ehlo)
-    rep = _recv_reply(s)
-    if _code(rep) != 250:
-        _send(s, "HELO %s\r\n" % ehlo)
+    if b"STARTTLS" in caps_upper:
+        _send(s, "STARTTLS\r\n")
+        rep = _recv_reply(s)
+        if _code(rep) != 220:
+            raise RuntimeError("STARTTLS rejected: %r" % rep)
+
+        # Wrap socket with TLS, disable verification (ESXi often lacks CA chain)
+        try:
+            ctx = _ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = _ssl.CERT_NONE
+            s = ctx.wrap_socket(s, server_hostname=host)
+        except Exception:
+            s = _ssl.wrap_socket(s, cert_reqs=_ssl.CERT_NONE)
+
+        # EHLO again after TLS per RFC
+        _send(s, "EHLO %s\r\n" % ehlo)
         rep = _recv_reply(s)
         if _code(rep) != 250:
-            raise RuntimeError("EHLO/HELO after STARTTLS failed: %r" % rep)
+            _send(s, "HELO %s\r\n" % ehlo)
+            rep = _recv_reply(s)
+            if _code(rep) != 250:
+                raise RuntimeError("EHLO/HELO after STARTTLS failed: %r" % rep)
+    else:
+        try:
+            sys.stderr.write("WARN: STARTTLS not advertised on %s:%s - continuing without TLS\n" % (str(host), str(port)))
+        except Exception:
+            pass
 
     # AUTH (optional)
     if user and pwd:
