@@ -7,7 +7,7 @@ export PATH
 # https://github.com/lamw/ghettoVCB
 # http://communities.vmware.com/docs/DOC-8760
 # Patched by AI for enhanced email notifications and robust root check
-# Use for GhettoGUI_V8.8.5 & sendmail 9.9 GhettoVCB_patch 9.7.5 Christian Furrer, 23.02.2026
+# Use for GhettoGUI_V8.8.5 & sendmail 9.9  Christian Furrer, 10.02.2026
 # Fixer Pfad O.K
 # Erweitertes email Log, sleep 60 sec. bei zeile 1448
 
@@ -285,44 +285,48 @@ sanityCheck() {
     fi
     # ####################################################################
 
-# --- NEU: Freier Speicher auf Ziel prüfen ---
-    REQUIRED_FREE_GB=${REQUIRED_FREE_GB:-50}
+    # --- NEU: Logrotation, falls die Logdatei groß ist ---
+    : "${MAX_LOG_SIZE_MB:=50}"   # per ENV änderbar
+    if [[ -f "${LOG_OUTPUT}" ]]; then
+        # Dateigröße in MB
+        CUR_SIZE_MB=$(du -m "${LOG_OUTPUT}" | awk '{print $1}')
+        if [[ "${CUR_SIZE_MB}" -ge "${MAX_LOG_SIZE_MB}" ]]; then
+            TS=$(date +%F_%H-%M-%S)
+            mv -- "${LOG_OUTPUT}" "${LOG_OUTPUT}.${TS}.1"
+            # optional: alte Rotationen aufräumen (nur die letzten 5 behalten)
+            ls -1 "${LOG_OUTPUT}".*.1 2>/dev/null | sort -r | tail -n +6 | xargs -r rm -f --
+        fi
+    fi
+    # --- ENDE NEU ---
 
+
+
+    touch "${LOG_OUTPUT}"
+	
+	    # --- NEU: Freier Speicher auf Ziel prüfen ---
+    : "${REQUIRED_FREE_GB:=50}"
     if [[ -n "${VM_BACKUP_VOLUME}" ]]; then
-        # Wir nutzen 'stat' statt 'df', um die freien Blöcke direkt zu lesen.
-        # -f (Filesystem), -c (Format), %a (freie Blöcke), %s (Blockgröße)
-        # Das ist auf ESXi wesentlich stabiler als 'df'.
-        if [ -d "${VM_BACKUP_VOLUME}" ]; then
-            FREE_BLOCKS=$(stat -f -c "%a" "${VM_BACKUP_VOLUME}" 2>/dev/null)
-            BLOCK_SIZE=$(stat -f -c "%s" "${VM_BACKUP_VOLUME}" 2>/dev/null)
-            
-            if [[ -n "${FREE_BLOCKS}" ]] && [[ -n "${BLOCK_SIZE}" ]]; then
-                # Berechnung der MB: (Blöcke * Blockgröße) / 1024 / 1024
-                FREE_MB=$(( (FREE_BLOCKS * BLOCK_SIZE) / 1024 / 1024 ))
-            else
-                FREE_MB=0
-            fi
+        # Freien Platz in MB ermitteln
+        FREE_MB=$(df -Pm "${VM_BACKUP_VOLUME}" 2>/dev/null | awk 'NR==2{print $4+0}')
+        if [[ -z "${FREE_MB}" || "${FREE_MB}" -le 0 ]]; then
+            logger "info" "ERROR: Unable to detect free space on ${VM_BACKUP_VOLUME}"
+            exit 20
+        fi
+		
+		# --- FIX: prevent "sh: bad number" if REQUIRED_FREE_GB is empty/non-numeric ---
+        if [ -z "${REQUIRED_FREE_GB}" ]; then
+            REQUIRED_FREE_GB=0
         else
-            FREE_MB=0
+            case "${REQUIRED_FREE_GB}" in
+                *[!0-9]*)
+                    REQUIRED_FREE_GB=0
+                    ;;
+            esac
         fi
-
-        # Falls FREE_MB leer oder 0 ist, versuchen wir als Fallback noch einmal df,
-        # aber diesmal sehr defensiv.
-        if [ "${FREE_MB}" -eq 0 ]; then
-             FREE_MB=$(df -m "${VM_BACKUP_VOLUME}" 2>/dev/null | grep -v Filesystem | awk '{print $(NF-2)+0}')
-        fi
-        
-        : "${FREE_MB:=0}"
-
-        # Validierung von REQUIRED_FREE_GB (Nur Zahlen)
-        case "${REQUIRED_FREE_GB}" in
-            *[!0-9]*) REQUIRED_FREE_GB=50 ;;
-            "") REQUIRED_FREE_GB=50 ;;
-        esac
-
+        # --- END FIX ---
+		
         REQ_MB=$(( REQUIRED_FREE_GB * 1024 ))
-
-        if [ "${FREE_MB}" -lt "${REQ_MB}" ]; then
+        if [[ "${FREE_MB}" -lt "${REQ_MB}" ]]; then
             logger "info" "ERROR: Not enough free space on ${VM_BACKUP_VOLUME}: need >= ${REQUIRED_FREE_GB}GB, have ~ $((FREE_MB/1024))GB"
             exit 21
         else
@@ -330,7 +334,6 @@ sanityCheck() {
         fi
     fi
     # --- ENDE NEU ---
-	
 	
     # REDIRECT is used by the "tail" trick, use REDIRECT=/dev/null to redirect vmkfstool to STDOUT only
     REDIRECT=${LOG_OUTPUT}
@@ -1012,7 +1015,7 @@ ghettoVCB() {
 
     # Log-Ausgabe (Alle anderen Zeilen bleiben erhalten)
     echo "Job-Konfiguration:" >> "${LOG_OUTPUT}"
-    echo "  - Typ: GhettoVCB Backup V8.8.5 v9.7.5" >> "${LOG_OUTPUT}"
+    echo "  - Typ: GhettoVCB Backup V8.8.5 v9.7" >> "${LOG_OUTPUT}"
     echo "  - Quell-Host: ${SOURCE_DISPLAY}" >> "${LOG_OUTPUT}"
     echo "  - Backup-Ziel: ${VM_BACKUP_VOLUME}" >> "${LOG_OUTPUT}"
     echo "  - Rotation: ${VM_BACKUP_ROTATION_COUNT}" >> "${LOG_OUTPUT}"
@@ -1025,7 +1028,7 @@ ghettoVCB() {
 # Füge direkt DANACH diesen Block ein:
     # Log configuration details
     echo "Job-Konfiguration:" >> "${LOG_OUTPUT}"
-    echo "  - Typ: GhettoVCB Backup V8.8.0 v9.7.5" >> "${LOG_OUTPUT}"
+    echo "  - Typ: GhettoVCB Backup V8.8.5 v9.7" >> "${LOG_OUTPUT}"
     echo "  - Backup-Ziel: ${VM_BACKUP_VOLUME}" >> "${LOG_OUTPUT}"
     echo "  - Rotation: ${VM_BACKUP_ROTATION_COUNT}" >> "${LOG_OUTPUT}"
     echo "  - Disk-Format: ${DISK_BACKUP_FORMAT}" >> "${LOG_OUTPUT}"

@@ -7113,7 +7113,7 @@ function Save-GhettoVCBConfig {
 
 	$confLines = @(
 		"USE_FIXED_BACKUP_DIR=$useFixedDirValue",
-        "VM_BACKUP_VOLUME=""$fullBackupPath""", "VM_BACKUP_ROTATION_COUNT=$rotation", "DISK_BACKUP_FORMAT=""$diskFormat""",
+        "VM_BACKUP_VOLUME=""$fullBackupPath""", "VM_BACKUP_ROTATION_COUNT=$rotation", "REQUIRED_FREE_GB=50", "DISK_BACKUP_FORMAT=""$diskFormat""",
         # KORREKTUR: Die korrekten Variablennamen für die .conf-Datei werden hier verwendet
         "VM_SNAPSHOT_MEMORY=$snapMem", "VM_SNAPSHOT_QUIESCE=$snapQuiesce", "USE_FIXED_BACKUP_DIR=$useFixedDirValue",
         "POWER_VM_DOWN_BEFORE_BACKUP=0", "ENABLE_HARD_POWER_OFF=0", "ITER_TO_WAIT_SHUTDOWN=3", "POWER_DOWN_TIMEOUT=5", "SNAPSHOT_TIMEOUT=15", "ENABLE_COMPRESSION=0",
