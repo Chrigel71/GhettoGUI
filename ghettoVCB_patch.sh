@@ -7,7 +7,7 @@ export PATH
 # https://github.com/lamw/ghettoVCB
 # http://communities.vmware.com/docs/DOC-8760
 # Patched by AI for enhanced email notifications and robust root check
-# Use for GhettoGUI_V8.8.0 & sendmail 9.9  Christian Furrer, 10.02.2026
+# Use for GhettoGUI_V8.8.5 & sendmail 9.9  Christian Furrer, 10.02.2026
 # Fixer Pfad O.K
 # Erweitertes email Log, sleep 60 sec. bei zeile 1448
 
@@ -312,6 +312,19 @@ sanityCheck() {
             logger "info" "ERROR: Unable to detect free space on ${VM_BACKUP_VOLUME}"
             exit 20
         fi
+		
+		# --- FIX: prevent "sh: bad number" if REQUIRED_FREE_GB is empty/non-numeric ---
+        if [ -z "${REQUIRED_FREE_GB}" ]; then
+            REQUIRED_FREE_GB=0
+        else
+            case "${REQUIRED_FREE_GB}" in
+                *[!0-9]*)
+                    REQUIRED_FREE_GB=0
+                    ;;
+            esac
+        fi
+        # --- END FIX ---
+		
         REQ_MB=$(( REQUIRED_FREE_GB * 1024 ))
         if [[ "${FREE_MB}" -lt "${REQ_MB}" ]]; then
             logger "info" "ERROR: Not enough free space on ${VM_BACKUP_VOLUME}: need >= ${REQUIRED_FREE_GB}GB, have ~ $((FREE_MB/1024))GB"
@@ -528,6 +541,24 @@ findVMDK() {
     #fi
 }
 
+
+# --- NEW: Resolve VMX VMDK path (relative, absolute, or "[datastore] path") ---
+resolve_vmdk_path() {
+    RAW="$1"
+    # Case 1: absolute path
+    echo "${RAW}" | grep -q "^/" && { echo "${RAW}"; return; }
+    # Case 2: VMware datastore format "[datastore] path/file.vmdk"
+    if echo "${RAW}" | grep -qE '^\[[^]]+\] '; then
+        DS=$(echo "${RAW}" | sed -n 's/^\[\([^]]*\)\] .*/\1/p')
+        RP=$(echo "${RAW}" | sed -n 's/^\[[^]]*\] \(.*\)$/\1/p')
+        echo "/vmfs/volumes/${DS}/${RP}"
+        return
+    fi
+    # Case 3: relative path (relative to VMX_DIR)
+    echo "${VMX_DIR}/${RAW}"
+}
+# --- END NEW ---
+
 getVMDKs() {
     #get all VMDKs listed in .vmx file
     VMDKS_FOUND=$(grep -iE '(^scsi|^ide|^sata|^nvme)' "${VMX_PATH}" | grep -i fileName | awk -F " " '{print $1}')
@@ -553,6 +584,7 @@ getVMDKs() {
                 #if we find the device type is of scsi-disk, then proceed
                 if [[ $? -eq 0 ]]; then
                     DISK=$(grep -i "^${SCSI_ID}.fileName" "${VMX_PATH}" | awk -F "\"" '{print $2}')
+                    DISK=$(resolve_vmdk_path "${DISK}")
                     echo "${DISK}" | grep "\/vmfs\/volumes" > /dev/null 2>&1
 
                     if [[ $? -eq 0 ]]; then
@@ -572,6 +604,7 @@ getVMDKs() {
 
                     if [[ $? -eq 0 ]]; then
                         DISK=$(grep -i "^${SCSI_ID}.fileName" "${VMX_PATH}" | awk -F "\"" '{print $2}')
+                        DISK=$(resolve_vmdk_path "${DISK}")
                         echo "${DISK}" | grep "\/vmfs\/volumes" > /dev/null 2>&1
                         if [[ $? -eq 0 ]]; then
                             DISK_SIZE_IN_SECTORS=$(cat "${DISK}" | grep "VMFS" | grep ".vmdk" | awk '{print $2}')
@@ -587,6 +620,7 @@ getVMDKs() {
             else
                 #independent disks are not affected by snapshots, hence they can not be backed up
                 DISK=$(grep -i "^${SCSI_ID}.fileName" "${VMX_PATH}" | awk -F "\"" '{print $2}')
+                DISK=$(resolve_vmdk_path "${DISK}")
                 echo "${DISK}" | grep "\/vmfs\/volumes" > /dev/null 2>&1
                 if [[ $? -eq 0 ]]; then
                     DISK_SIZE_IN_SECTORS=$(cat "${DISK}" | grep "VMFS" | grep ".vmdk" | awk '{print $2}')
@@ -981,7 +1015,7 @@ ghettoVCB() {
 
     # Log-Ausgabe (Alle anderen Zeilen bleiben erhalten)
     echo "Job-Konfiguration:" >> "${LOG_OUTPUT}"
-    echo "  - Typ: GhettoVCB Backup V8.8.0 v9.2" >> "${LOG_OUTPUT}"
+    echo "  - Typ: GhettoVCB Backup V8.8.5 v9.7" >> "${LOG_OUTPUT}"
     echo "  - Quell-Host: ${SOURCE_DISPLAY}" >> "${LOG_OUTPUT}"
     echo "  - Backup-Ziel: ${VM_BACKUP_VOLUME}" >> "${LOG_OUTPUT}"
     echo "  - Rotation: ${VM_BACKUP_ROTATION_COUNT}" >> "${LOG_OUTPUT}"
@@ -994,7 +1028,7 @@ ghettoVCB() {
 # Füge direkt DANACH diesen Block ein:
     # Log configuration details
     echo "Job-Konfiguration:" >> "${LOG_OUTPUT}"
-    echo "  - Typ: GhettoVCB Backup V8.8.0 v9.2" >> "${LOG_OUTPUT}"
+    echo "  - Typ: GhettoVCB Backup V8.8.5 v9.7" >> "${LOG_OUTPUT}"
     echo "  - Backup-Ziel: ${VM_BACKUP_VOLUME}" >> "${LOG_OUTPUT}"
     echo "  - Rotation: ${VM_BACKUP_ROTATION_COUNT}" >> "${LOG_OUTPUT}"
     echo "  - Disk-Format: ${DISK_BACKUP_FORMAT}" >> "${LOG_OUTPUT}"

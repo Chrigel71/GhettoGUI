@@ -221,7 +221,7 @@ def create_summary(log_content):
         status_color = "#333"
 
     parts = ["<html><head><meta charset='utf-8'><style>body{font-family:Arial,sans-serif;font-size:13px}h3,h4{color:#333}pre{background:#f4f4f4;padding:10px;border:1px solid #ddd;white-space:pre-wrap}.err{color:#dc3545;font-weight:bold}.wrn{color:#b06a00;font-weight:bold}</style></head><body>"]   
-    parts.append('<h2 style="color: %s;">Backup-Zusammenfassung v9.5</h2><hr>' % status_color)
+    parts.append('<h2 style="color: %s;">Backup-Zusammenfassung v9.7</h2><hr>' % status_color)
     parts.append('<p><b>Status:</b> <span style="color: %s; font-weight: bold;">%s</span></p>' % (status_color, html_escape(summary["status"])))
     parts.append("<h4>Job-Details:</h4><ul>")
     parts.append("<li><b>Startzeit:&nbsp;&nbsp;</b> %s</li>" % html_escape(summary["start_time"]))
