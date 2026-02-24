@@ -7,7 +7,7 @@ export PATH
 # https://github.com/lamw/ghettoVCB
 # http://communities.vmware.com/docs/DOC-8760
 # Patched by AI for enhanced email notifications and robust root check
-# Use for GhettoGUI_V8.9.0 & sendmail 9.9  Christian Furrer, 24.02.2026
+# Use for GhettoGUI_V8.8.0 & sendmail 9.9  Christian Furrer, 24.02.2026
 # Fixer Pfad O.K
 # Erweitertes email Log, sleep 60 sec. bei zeile 1448
 
@@ -303,7 +303,7 @@ sanityCheck() {
 
     touch "${LOG_OUTPUT}"
 	
-# --- NEU: Ultra-stabile Speicherplatzprüfung v2 ---
+	# --- NEU: Ultra-stabile Speicherplatzprüfung v2 ---
     REQUIRED_FREE_GB=${REQUIRED_FREE_GB:-50}
 
     if [[ -n "${VM_BACKUP_VOLUME}" ]]; then
@@ -556,6 +556,24 @@ findVMDK() {
     #fi
 }
 
+
+# --- NEW: Resolve VMX VMDK path (relative, absolute, or "[datastore] path") ---
+resolve_vmdk_path() {
+    RAW="$1"
+    # Case 1: absolute path
+    echo "${RAW}" | grep -q "^/" && { echo "${RAW}"; return; }
+    # Case 2: VMware datastore format "[datastore] path/file.vmdk"
+    if echo "${RAW}" | grep -qE '^\[[^]]+\] '; then
+        DS=$(echo "${RAW}" | sed -n 's/^\[\([^]]*\)\] .*/\1/p')
+        RP=$(echo "${RAW}" | sed -n 's/^\[[^]]*\] \(.*\)$/\1/p')
+        echo "/vmfs/volumes/${DS}/${RP}"
+        return
+    fi
+    # Case 3: relative path (relative to VMX_DIR)
+    echo "${VMX_DIR}/${RAW}"
+}
+# --- END NEW ---
+
 getVMDKs() {
     #get all VMDKs listed in .vmx file
     VMDKS_FOUND=$(grep -iE '(^scsi|^ide|^sata|^nvme)' "${VMX_PATH}" | grep -i fileName | awk -F " " '{print $1}')
@@ -581,6 +599,7 @@ getVMDKs() {
                 #if we find the device type is of scsi-disk, then proceed
                 if [[ $? -eq 0 ]]; then
                     DISK=$(grep -i "^${SCSI_ID}.fileName" "${VMX_PATH}" | awk -F "\"" '{print $2}')
+                    DISK=$(resolve_vmdk_path "${DISK}")
                     echo "${DISK}" | grep "\/vmfs\/volumes" > /dev/null 2>&1
 
                     if [[ $? -eq 0 ]]; then
@@ -600,6 +619,7 @@ getVMDKs() {
 
                     if [[ $? -eq 0 ]]; then
                         DISK=$(grep -i "^${SCSI_ID}.fileName" "${VMX_PATH}" | awk -F "\"" '{print $2}')
+                        DISK=$(resolve_vmdk_path "${DISK}")
                         echo "${DISK}" | grep "\/vmfs\/volumes" > /dev/null 2>&1
                         if [[ $? -eq 0 ]]; then
                             DISK_SIZE_IN_SECTORS=$(cat "${DISK}" | grep "VMFS" | grep ".vmdk" | awk '{print $2}')
@@ -615,6 +635,7 @@ getVMDKs() {
             else
                 #independent disks are not affected by snapshots, hence they can not be backed up
                 DISK=$(grep -i "^${SCSI_ID}.fileName" "${VMX_PATH}" | awk -F "\"" '{print $2}')
+                DISK=$(resolve_vmdk_path "${DISK}")
                 echo "${DISK}" | grep "\/vmfs\/volumes" > /dev/null 2>&1
                 if [[ $? -eq 0 ]]; then
                     DISK_SIZE_IN_SECTORS=$(cat "${DISK}" | grep "VMFS" | grep ".vmdk" | awk '{print $2}')
@@ -721,7 +742,7 @@ Get_Final_Status_Sendemail() {
     fi
 
     logger "debug" "Succesfully removed lock directory - ${WORKDIR}\n"
-    logger "info" "============================== ghettoVCB LOG END ================================\n"
+    logger "info" "========= ghettoVCB LOG END ============\n"
 
     sendMail
 }
@@ -1009,7 +1030,7 @@ ghettoVCB() {
 
     # Log-Ausgabe (Alle anderen Zeilen bleiben erhalten)
     echo "Job-Konfiguration:" >> "${LOG_OUTPUT}"
-    echo "  - Typ: GhettoVCB Backup V8.9.0 v9.8.2" >> "${LOG_OUTPUT}"
+    echo "  - Typ: GhettoVCB Backup V8.9.0 v9.8.3" >> "${LOG_OUTPUT}"
     echo "  - Quell-Host: ${SOURCE_DISPLAY}" >> "${LOG_OUTPUT}"
     echo "  - Backup-Ziel: ${VM_BACKUP_VOLUME}" >> "${LOG_OUTPUT}"
     echo "  - Rotation: ${VM_BACKUP_ROTATION_COUNT}" >> "${LOG_OUTPUT}"
@@ -1022,7 +1043,7 @@ ghettoVCB() {
 # Füge direkt DANACH diesen Block ein:
     # Log configuration details
     echo "Job-Konfiguration:" >> "${LOG_OUTPUT}"
-    echo "  - Typ: GhettoVCB Backup V8.9.0 v9.8.2" >> "${LOG_OUTPUT}"
+    echo "  - Typ: GhettoVCB Backup V8.9.0 v9.8.3" >> "${LOG_OUTPUT}"
     echo "  - Backup-Ziel: ${VM_BACKUP_VOLUME}" >> "${LOG_OUTPUT}"
     echo "  - Rotation: ${VM_BACKUP_ROTATION_COUNT}" >> "${LOG_OUTPUT}"
     echo "  - Disk-Format: ${DISK_BACKUP_FORMAT}" >> "${LOG_OUTPUT}"
@@ -2015,7 +2036,7 @@ if mkdir "${WORKDIR}"; then
     GHETTOVCB_PID=$$
     echo $GHETTOVCB_PID > "${WORKDIR}/pid"
 
-    logger "info" "============================== ghettoVCB LOG START ==============================\n"
+    logger "info" "======= ghettoVCB LOG START =========\n"
     logger "debug" "Succesfully acquired lock directory - ${WORKDIR}\n"
 
 # terminate script and remove lock/workdir when a signal is received
@@ -2072,7 +2093,7 @@ trap 'rm -f "$LOCK"; rm -rf "${WORKDIR}"; exit 2' 1 2 3 13 15
     fi
 
     logger "debug" "Succesfully removed lock directory - ${WORKDIR}\n"
-    logger "info" "============================== ghettoVCB LOG END ================================\n"
+    logger "info" "========= ghettoVCB LOG END ============\n"
 
     # Exit with the final status code
     exit $EXIT
