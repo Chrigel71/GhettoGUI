@@ -7,7 +7,7 @@ export PATH
 # https://github.com/lamw/ghettoVCB
 # http://communities.vmware.com/docs/DOC-8760
 # Patched by AI for enhanced email notifications and robust root check
-# Use for GhettoGUI_V8.8.5 & sendmail 9.9 GhettoVCB_patch 9.7.5 Christian Furrer, 23.02.2026
+# Use for GhettoGUI_V8.9.0 & sendmail 9.9  Christian Furrer, 24.02.2026
 # Fixer Pfad O.K
 # Erweitertes email Log, sleep 60 sec. bei zeile 1448
 
@@ -285,52 +285,70 @@ sanityCheck() {
     fi
     # ####################################################################
 
-# --- NEU: Freier Speicher auf Ziel prüfen ---
+    # --- NEU: Logrotation, falls die Logdatei groß ist ---
+    : "${MAX_LOG_SIZE_MB:=50}"   # per ENV änderbar
+    if [[ -f "${LOG_OUTPUT}" ]]; then
+        # Dateigröße in MB
+        CUR_SIZE_MB=$(du -m "${LOG_OUTPUT}" | awk '{print $1}')
+        if [[ "${CUR_SIZE_MB}" -ge "${MAX_LOG_SIZE_MB}" ]]; then
+            TS=$(date +%F_%H-%M-%S)
+            mv -- "${LOG_OUTPUT}" "${LOG_OUTPUT}.${TS}.1"
+            # optional: alte Rotationen aufräumen (nur die letzten 5 behalten)
+            ls -1 "${LOG_OUTPUT}".*.1 2>/dev/null | sort -r | tail -n +6 | xargs -r rm -f --
+        fi
+    fi
+    # --- ENDE NEU ---
+
+
+
+    touch "${LOG_OUTPUT}"
+	
+# --- NEU: Ultra-stabile Speicherplatzprüfung v2 ---
     REQUIRED_FREE_GB=${REQUIRED_FREE_GB:-50}
 
     if [[ -n "${VM_BACKUP_VOLUME}" ]]; then
-        # Wir nutzen 'stat' statt 'df', um die freien Blöcke direkt zu lesen.
-        # -f (Filesystem), -c (Format), %a (freie Blöcke), %s (Blockgröße)
-        # Das ist auf ESXi wesentlich stabiler als 'df'.
-        if [ -d "${VM_BACKUP_VOLUME}" ]; then
-            FREE_BLOCKS=$(stat -f -c "%a" "${VM_BACKUP_VOLUME}" 2>/dev/null)
-            BLOCK_SIZE=$(stat -f -c "%s" "${VM_BACKUP_VOLUME}" 2>/dev/null)
-            
-            if [[ -n "${FREE_BLOCKS}" ]] && [[ -n "${BLOCK_SIZE}" ]]; then
-                # Berechnung der MB: (Blöcke * Blockgröße) / 1024 / 1024
-                FREE_MB=$(( (FREE_BLOCKS * BLOCK_SIZE) / 1024 / 1024 ))
-            else
-                FREE_MB=0
-            fi
-        else
-            FREE_MB=0
+        # Sicherstellen, dass der Pfad existiert
+        if [ ! -d "${VM_BACKUP_VOLUME}" ]; then
+            logger "info" "ERROR: Backup-Pfad nicht erreichbar: ${VM_BACKUP_VOLUME}"
+            exit 20
         fi
 
-        # Falls FREE_MB leer oder 0 ist, versuchen wir als Fallback noch einmal df,
-        # aber diesmal sehr defensiv.
-        if [ "${FREE_MB}" -eq 0 ]; then
-             FREE_MB=$(df -m "${VM_BACKUP_VOLUME}" 2>/dev/null | grep -v Filesystem | awk '{print $(NF-2)+0}')
+        # Methode 1: stat (Direktabfrage der Filesystem-Stats)
+        FREE_BLOCKS=$(stat -f -c "%a" "${VM_BACKUP_VOLUME}" 2>/dev/null)
+        BLOCK_SIZE=$(stat -f -c "%s" "${VM_BACKUP_VOLUME}" 2>/dev/null)
+        
+        if [[ -n "${FREE_BLOCKS}" ]] && [[ "${FREE_BLOCKS}" -gt 0 ]]; then
+            FREE_MB=$(( (FREE_BLOCKS * BLOCK_SIZE) / 1024 / 1024 ))
+        else
+            # Methode 2: Robustes df (sucht nach der Spalte VOR dem Prozentzeichen)
+            # Das hilft, wenn df die Zeilen aufgrund langer Pfadnamen umbricht.
+            FREE_MB=$(df -m "${VM_BACKUP_VOLUME}" | grep -v Filesystem | awk '{
+                for(i=1; i<=NF; i++) {
+                    if($i ~ /%/) { print $(i-1); exit }
+                }
+            }' | sed 's/[^0-9]//g')
         fi
         
-        : "${FREE_MB:=0}"
-
-        # Validierung von REQUIRED_FREE_GB (Nur Zahlen)
-        case "${REQUIRED_FREE_GB}" in
-            *[!0-9]*) REQUIRED_FREE_GB=50 ;;
-            "") REQUIRED_FREE_GB=50 ;;
-        esac
+        # Falls immer noch leer (bad number Schutz)
+        [ -z "${FREE_MB}" ] && FREE_MB=0
+        
+        # Validierung REQUIRED_FREE_GB (Nur Ziffern zulassen)
+        REQUIRED_FREE_GB=$(echo "${REQUIRED_FREE_GB}" | sed 's/[^0-9]//g')
+        : "${REQUIRED_FREE_GB:=50}"
 
         REQ_MB=$(( REQUIRED_FREE_GB * 1024 ))
 
         if [ "${FREE_MB}" -lt "${REQ_MB}" ]; then
+            # Debug-Info im Fehlerfall, um die Ursache im Log zu sehen
+            DF_DEBUG=$(df -m "${VM_BACKUP_VOLUME}" | grep -v Filesystem)
+            logger "info" "DEBUG: FREE_MB=${FREE_MB} | REQ_MB=${REQ_MB} | RAW_DF=${DF_DEBUG}"
             logger "info" "ERROR: Not enough free space on ${VM_BACKUP_VOLUME}: need >= ${REQUIRED_FREE_GB}GB, have ~ $((FREE_MB/1024))GB"
             exit 21
         else
             logger "info" "Free space check OK on ${VM_BACKUP_VOLUME}: ~ $((FREE_MB/1024))GB available"
         fi
     fi
-    # --- ENDE NEU ---
-	
+    # --- ENDE ---
 	
     # REDIRECT is used by the "tail" trick, use REDIRECT=/dev/null to redirect vmkfstool to STDOUT only
     REDIRECT=${LOG_OUTPUT}
@@ -538,24 +556,6 @@ findVMDK() {
     #fi
 }
 
-
-# --- NEW: Resolve VMX VMDK path (relative, absolute, or "[datastore] path") ---
-resolve_vmdk_path() {
-    RAW="$1"
-    # Case 1: absolute path
-    echo "${RAW}" | grep -q "^/" && { echo "${RAW}"; return; }
-    # Case 2: VMware datastore format "[datastore] path/file.vmdk"
-    if echo "${RAW}" | grep -qE '^\[[^]]+\] '; then
-        DS=$(echo "${RAW}" | sed -n 's/^\[\([^]]*\)\] .*/\1/p')
-        RP=$(echo "${RAW}" | sed -n 's/^\[[^]]*\] \(.*\)$/\1/p')
-        echo "/vmfs/volumes/${DS}/${RP}"
-        return
-    fi
-    # Case 3: relative path (relative to VMX_DIR)
-    echo "${VMX_DIR}/${RAW}"
-}
-# --- END NEW ---
-
 getVMDKs() {
     #get all VMDKs listed in .vmx file
     VMDKS_FOUND=$(grep -iE '(^scsi|^ide|^sata|^nvme)' "${VMX_PATH}" | grep -i fileName | awk -F " " '{print $1}')
@@ -581,7 +581,6 @@ getVMDKs() {
                 #if we find the device type is of scsi-disk, then proceed
                 if [[ $? -eq 0 ]]; then
                     DISK=$(grep -i "^${SCSI_ID}.fileName" "${VMX_PATH}" | awk -F "\"" '{print $2}')
-                    DISK=$(resolve_vmdk_path "${DISK}")
                     echo "${DISK}" | grep "\/vmfs\/volumes" > /dev/null 2>&1
 
                     if [[ $? -eq 0 ]]; then
@@ -601,7 +600,6 @@ getVMDKs() {
 
                     if [[ $? -eq 0 ]]; then
                         DISK=$(grep -i "^${SCSI_ID}.fileName" "${VMX_PATH}" | awk -F "\"" '{print $2}')
-                        DISK=$(resolve_vmdk_path "${DISK}")
                         echo "${DISK}" | grep "\/vmfs\/volumes" > /dev/null 2>&1
                         if [[ $? -eq 0 ]]; then
                             DISK_SIZE_IN_SECTORS=$(cat "${DISK}" | grep "VMFS" | grep ".vmdk" | awk '{print $2}')
@@ -617,7 +615,6 @@ getVMDKs() {
             else
                 #independent disks are not affected by snapshots, hence they can not be backed up
                 DISK=$(grep -i "^${SCSI_ID}.fileName" "${VMX_PATH}" | awk -F "\"" '{print $2}')
-                DISK=$(resolve_vmdk_path "${DISK}")
                 echo "${DISK}" | grep "\/vmfs\/volumes" > /dev/null 2>&1
                 if [[ $? -eq 0 ]]; then
                     DISK_SIZE_IN_SECTORS=$(cat "${DISK}" | grep "VMFS" | grep ".vmdk" | awk '{print $2}')
@@ -1012,7 +1009,7 @@ ghettoVCB() {
 
     # Log-Ausgabe (Alle anderen Zeilen bleiben erhalten)
     echo "Job-Konfiguration:" >> "${LOG_OUTPUT}"
-    echo "  - Typ: GhettoVCB Backup V8.8.5 v9.7.5" >> "${LOG_OUTPUT}"
+    echo "  - Typ: GhettoVCB Backup V8.9.0 v9.8.2" >> "${LOG_OUTPUT}"
     echo "  - Quell-Host: ${SOURCE_DISPLAY}" >> "${LOG_OUTPUT}"
     echo "  - Backup-Ziel: ${VM_BACKUP_VOLUME}" >> "${LOG_OUTPUT}"
     echo "  - Rotation: ${VM_BACKUP_ROTATION_COUNT}" >> "${LOG_OUTPUT}"
@@ -1025,7 +1022,7 @@ ghettoVCB() {
 # Füge direkt DANACH diesen Block ein:
     # Log configuration details
     echo "Job-Konfiguration:" >> "${LOG_OUTPUT}"
-    echo "  - Typ: GhettoVCB Backup V8.8.0 v9.7.5" >> "${LOG_OUTPUT}"
+    echo "  - Typ: GhettoVCB Backup V8.9.0 v9.8.2" >> "${LOG_OUTPUT}"
     echo "  - Backup-Ziel: ${VM_BACKUP_VOLUME}" >> "${LOG_OUTPUT}"
     echo "  - Rotation: ${VM_BACKUP_ROTATION_COUNT}" >> "${LOG_OUTPUT}"
     echo "  - Disk-Format: ${DISK_BACKUP_FORMAT}" >> "${LOG_OUTPUT}"
